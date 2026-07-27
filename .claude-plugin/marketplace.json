@@ -1,5 +1,7 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
   "name": "agentic-plugins",
+  "description": "Capability plugins for agentic-repo-template (v0.3+): the paper/LaTeX suite the scaffold layer cannot ship as file copies. Plugin versions live in each plugin.json only — never duplicated here (plugin.json wins at install time).",
   "owner": { "name": "groundnuty" },
   "plugins": [
     {
