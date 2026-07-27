@@ -1,0 +1,11 @@
+{
+  "name": "agentic-plugins",
+  "owner": { "name": "groundnuty" },
+  "plugins": [
+    {
+      "name": "agentic-paper",
+      "source": "./agentic-paper",
+      "description": "Academic paper suite: review, claim verification (CoVe), proofreading, referee response, reproducibility audit, TikZ discipline, BibTeX validation, texlab LSP."
+    }
+  ]
+}
