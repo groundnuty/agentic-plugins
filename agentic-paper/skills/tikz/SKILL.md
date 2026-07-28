@@ -9,17 +9,21 @@ argument-hint: [path/to/file.tex]
 
 > **Attribution.** Adapted from Scott Cunningham's `/agentic-paper:tikz` skill in [MixtapeTools](https://github.com/scunning1975/MixtapeTools) (licensed "Use freely. Attribution appreciated."). Stripped MixtapeTools-specific tool references (`/beautiful_deck`, `~/mixtapetools/...`) for this template's generic paper-writing context.
 
-**Purpose**: Find and fix residual visual collisions in TikZ figures in a given `.tex` file. Labels on arrows, text inside boxes, arrows crossing arrows — this skill catches them using measurement, not intuition.
+**Purpose**: Get TikZ right by measurement rather than intuition — on both paths. **Writing a figure**: apply the prevention rules and the canonical snippets so collisions never occur. **Repairing one**: find and fix residual visual collisions in a given `.tex` file — labels on arrows, text inside boxes, arrows crossing arrows.
 
 **The fundamental rule**: Claude cannot reliably eyeball where TikZ elements land. All placement must be verified mathematically before declaring it safe.
 
 ---
 
-## Critical context: this is a repair tool, not the primary defense
+## Critical context: prevention is the primary path, repair is the fallback
 
-`/agentic-paper:tikz` runs **after** TikZ has been generated. It audits existing code and fixes what it finds. But it cannot reliably fix diagrams that were never built with measurement in mind.
+This skill has two entry points, and **which one you are on decides everything downstream**.
 
-**The upstream defense is [`PREVENTION.md`](PREVENTION.md)** (in this skill directory), which describes writing safe TikZ from the start:
+**Writing new TikZ** — you are on the prevention path. Load [`PREVENTION.md`](PREVENTION.md) and the [`snippets/`](snippets/) library *before* generating a single line, and apply the rules below as you write. This is the cheaper and far more reliable path.
+
+**Fixing existing TikZ** — you are on the repair path. The audit runs **after** TikZ has been generated: it measures existing code and fixes what it finds. It cannot reliably rescue diagrams that were never built with measurement in mind, which is exactly why the prevention path exists.
+
+**The prevention rules are in [`PREVENTION.md`](PREVENTION.md)** (in this skill directory) — read it first on the write path:
 
 1. Every `\node` declares explicit `minimum width` and `minimum height` (Rule P1)
 2. Every edge label carries a directional keyword (`above`, `below`, etc.) (Rule P4)
