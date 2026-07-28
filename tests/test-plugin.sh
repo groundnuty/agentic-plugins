@@ -2,9 +2,11 @@
 # test-plugin.sh — the agentic-plugins marketplace test suite.
 #
 # Five groups, in cost order (cheap structural checks first, the live install last):
-#   A  manifests            claude plugin validate (plugin + marketplace, --strict)
+#   A  manifests            claude plugin validate (plugin + marketplace, --strict), plus the
+#                           vendor-neutral .agents/plugins/marketplace.json symlink Codex resolves
 #   B  frontmatter lint     our own — `claude plugin validate` does NOT catch the banned
-#                           plugin-agent fields (v0.3 plan review, m1), so we check them here
+#                           plugin-agent fields (v0.3 plan review, m1), so we check them here;
+#                           also the tikz write-path-first description guard (B6)
 #   C  D5 namespacing       zero bare-name / zero stale-scaffold-path references
 #   D  version agreement    claude plugin tag --dry-run (Phase-0 carry-item 4: the CLI already
 #                           IS the tag<->version guard; don't write one)
@@ -105,6 +107,53 @@ PY
                      || bad "A5 marketplace entry carries no duplicate version (U9 rider)" \
                             "remove \"version\" from the $PLUGIN_NAME entry — plugin.json wins silently"
 
+# A6/A7 — the vendor-neutral marketplace path. Codex (Agent Plugins 1.0; TSC = OpenAI/Microsoft/
+# Amazon/Cursor/Vercel) resolves `.agents/plugins/marketplace.json` FIRST and only falls back to
+# `.claude-plugin/marketplace.json` through a compat branch its own source calls "legacy". A
+# symlink serves the neutral path while keeping exactly one file as the source of truth — verified
+# empirically: `codex plugin marketplace add <dir>` resolves and installs through the neutral name.
+# The link must stay RELATIVE, or it breaks the moment the tree is cloned or moved.
+NEUTRAL_MKT="$MKT_ROOT/.agents/plugins/marketplace.json"
+CANON_MKT="$MKT_ROOT/.claude-plugin/marketplace.json"
+
+nprobs=""
+[ -L "$NEUTRAL_MKT" ] || nprobs="$nprobs not-a-symlink"
+# -e follows the link, so a dangling link fails here rather than passing vacuously downstream
+[ -e "$NEUTRAL_MKT" ] || nprobs="$nprobs dangling-or-missing"
+if [ -z "$nprobs" ]; then
+  case "$(readlink "$NEUTRAL_MKT")" in
+    /*) nprobs="$nprobs absolute-link" ;;
+  esac
+  # realpath via python3: BSD readlink on stock macOS has no -f, and this suite must run there
+  rp() { python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "$1"; }
+  real_n=$(rp "$NEUTRAL_MKT"); real_c=$(rp "$CANON_MKT")
+  [ "$real_n" = "$real_c" ] || nprobs="$nprobs resolves-to:$real_n(want:$real_c)"
+fi
+[ -z "$nprobs" ] \
+  && ok "A6 .agents/plugins/marketplace.json is a relative symlink to the .claude-plugin file" \
+  || bad "A6 vendor-neutral marketplace path broken" \
+         "$nprobs — Codex checks .agents/ first; .claude-plugin/ is its 'legacy' fallback"
+
+if ! command -v jq >/dev/null; then
+  skip "A7 both marketplace paths parse to identical JSON (jq not on PATH)"
+elif [ ! -e "$NEUTRAL_MKT" ] || [ ! -e "$CANON_MKT" ]; then
+  bad "A7 both marketplace paths parse to identical JSON" "one of the two paths does not resolve"
+else
+  jn=$(jq -S . "$NEUTRAL_MKT" 2>&1); rcn=$?
+  jc=$(jq -S . "$CANON_MKT" 2>&1); rcc=$?
+  if [ $rcn -ne 0 ] || [ $rcc -ne 0 ]; then
+    bad "A7 a marketplace path does not parse as JSON" "$jn $jc"
+  elif [ -z "$jn" ] || [ -z "$jc" ]; then
+    # empty-vs-empty would compare equal, which is how a broken path passes vacuously
+    bad "A7 a marketplace path parsed to empty JSON" "neutral:${#jn} bytes canonical:${#jc} bytes"
+  elif [ "$jn" = "$jc" ]; then
+    ok "A7 both marketplace paths parse to identical JSON (jq -S)"
+  else
+    bad "A7 the two marketplace paths disagree" \
+        "$(diff <(printf '%s\n' "$jc") <(printf '%s\n' "$jn") | head -20)"
+  fi
+fi
+
 # ---------------------------------------------------------------------------------------------
 group "B · frontmatter lint — the fields claude plugin validate does not check (m1)"
 
@@ -190,6 +239,48 @@ PY
 )
 [ -z "$banned_hits" ] && ok "B5 grep backstop: no banned key appears in any agent frontmatter" \
                       || bad "B5 grep backstop: banned key present" "$banned_hits"
+
+# B6 — the tikz description must LEAD with the write path. Empirically grounded: with the old
+# repair-first lead ("Audit and fix … a downstream repair tool — not a safety net"), Codex asked to
+# DRAFT a new figure reasoned that agentic-paper:tikz "is mainly for auditing and repairing an
+# existing TikZ figure, not drafting one from scratch" and declined to load the skill — so the
+# PREVENTION.md rules that v0.3 deliberately moved INTO this skill never fired. Mere PRESENCE of a
+# write-path phrase is not the guard (the old string had one, buried in the last clause): this
+# asserts ORDER — write path before repair path — and that the old lead framing is gone.
+tikz_guard=$(python3 - "$PLUGIN_DIR/skills/tikz/SKILL.md" <<'PY'
+import re, sys
+txt = open(sys.argv[1]).read()
+m = re.match(r"^---\n(.*?)\n---\n", txt, re.S)
+probs, desc = [], ""
+if not m:
+    probs.append("no YAML frontmatter")
+else:
+    d = re.search(r"^description:[ \t]*(\S.*)$", m.group(1), re.M)
+    if not d:
+        probs.append("no single-line description")
+    else:
+        desc = d.group(1).strip()
+low = desc.lower()
+write  = re.search(r"before (writing|drafting|creating)", low)
+# deliberately NOT a bare /repair|fix/: the prevention clause legitimately says "beats TikZ
+# repaired twice", which would satisfy a loose regex and leave this half of B6 green even if the
+# whole repair clause were deleted. These alternatives can only come from the repair clause.
+repair = re.search(r"repair path|audit|labels overlap|arrows cross", low)
+if not write:
+    probs.append("no write-path signal — want /before (writing|drafting|creating)/")
+if not repair:
+    probs.append("lost the repair-path signal — want /repair path|audit|labels overlap|arrows cross/")
+if write and repair and write.start() > repair.start():
+    probs.append(f"write-path signal at char {write.start()} trails repair-path signal "
+                 f"at char {repair.start()} — the repair-first framing is what Codex tripped on")
+if re.search(r"downstream repair tool|not a safety net", low):
+    probs.append("still carries the repair-first lead framing")
+print("\n".join(probs))
+PY
+)
+[ -z "$tikz_guard" ] \
+  && ok "B6 tikz description leads with the write path and still covers repair" \
+  || bad "B6 tikz description misframes the skill (models will skip it when drafting)" "$tikz_guard"
 
 # ---------------------------------------------------------------------------------------------
 group "C · D5 namespacing — zero bare names, zero stale scaffold paths"

@@ -1,6 +1,6 @@
 ---
 name: tikz
-description: Audit and fix residual TikZ visual collisions in a .tex file. A downstream repair tool — not a safety net. Use /agentic-paper:tikz when labels overlap arrows, text sits on boxes, or arrows cross each other. Applies mathematical gap calculations and Bézier depth formulas — no eyeballing. ALSO invoke BEFORE writing any new TikZ figure — Step 0 loads the prevention rules (PREVENTION.md); writing safe TikZ beats repairing it.
+description: Invoke BEFORE writing, drafting, or creating any TikZ figure — Step 0 loads the prevention rules (PREVENTION.md) and the canonical snippet library, because safe TikZ written once beats TikZ repaired twice. Also the repair path for figures that already exist — use /agentic-paper:tikz when labels overlap arrows, text sits on boxes, arrows cross each other, or a compile warning needs triage. Applies mathematical gap calculations and Bézier depth formulas — no eyeballing.
 allowed-tools: Bash(pdflatex*), Bash(grep*), Bash(ls*), Bash(file*), Bash(wc*), Read, Edit, Write, Glob
 argument-hint: [path/to/file.tex]
 ---
