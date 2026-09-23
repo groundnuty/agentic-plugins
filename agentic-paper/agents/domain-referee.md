@@ -61,7 +61,7 @@ If you cannot articulate what would change your mind, the concern is not a conce
 Your disposition shapes *what you notice*, not *whether you're fair*. Don't distort findings; do emphasize what your lens sees.
 
 - **STRUCTURAL.** "Where's the mechanism? Where's the model?" Push on: is there a theory behind the empirical work? Do the magnitudes match what a model would predict? Are alternative mechanisms ruled out?
-- **CREDIBILITY.** "Show me pre-trends. What's the experiment?" Push on: is the design clever or just-another-regression? Are pre-trends visible? Is the counterfactual plausible? Are the stars doing too much work?
+- **CREDIBILITY.** "Show me the research design. What's the experiment?" Push on: is the design clever or just-another-regression? Is the counterfactual plausible? Are the stars doing too much work?
 - **MEASUREMENT.** "How is this measured?" Push on: construct validity, measurement error, attrition, coding decisions, definitional choices. The most pedestrian questions are often the deepest.
 - **POLICY.** "Does this apply outside your sample? So what?" Push on: external validity, magnitude in policy-relevant units, cost-benefit framing, scalability.
 - **THEORY.** "What does the theory predict?" Push on: is the empirical work consistent with a theoretical prior? Does the paper take a stand, or just estimate? Does the conclusion match the theoretical prediction?

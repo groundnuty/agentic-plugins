@@ -1,9 +1,9 @@
 ---
 name: seven-pass-review
-description: Mechanize Pattern 15 — the seven-pass adversarial review protocol for academic manuscripts. Spawns 7 forked subagents in parallel (abstract, intro, methods, results, robustness, prose, citations), then synthesizes a prioritized revision checklist. Use for submission-ready or R&R-stage papers where single-pass review isn't enough.
+description: Mechanize Pattern 15 — the seven-pass adversarial review protocol for academic manuscripts. Spawns 7 fresh subagents in parallel (abstract, intro, methods, results, robustness, prose, citations), then synthesizes a prioritized revision checklist. Use for submission-ready or R&R-stage papers where single-pass review isn't enough.
 argument-hint: "[manuscript path]"
 disable-model-invocation: true
-allowed-tools: ["Read", "Grep", "Glob", "Write", "Bash", "Task"]
+allowed-tools: ["Read", "Grep", "Glob", "Write", "Bash", "Agent", "Task"]
 effort: high
 ---
 
@@ -14,7 +14,7 @@ effort: high
 
 Runs seven independent reviewers, each focused on a single lens, then synthesizes their findings into one prioritized revision plan. Pattern 15 from the workflow guide, mechanized.
 
-**Why seven passes?** A single-agent review blends lenses and softens each one. Seven forked agents each approach the paper with full context budget for their own lens, then a synthesizer resolves conflicts and de-duplicates.
+**Why seven passes?** A single-agent review blends lenses and softens each one. Seven fresh subagents each approach the paper with a full context budget for their own lens, then a synthesizer resolves conflicts and de-duplicates.
 
 > **When to pick this over `/agentic-paper:review-paper`:** This skill costs roughly 7× more tokens than `/agentic-paper:review-paper` (default) and ~2× more than `/agentic-paper:review-paper --adversarial`. Use it when the paper is submission-ready or at R&R stage and you need maximum lens coverage. For early drafts or iterative work, `/agentic-paper:review-paper` is the right tool. For journal-simulation pressure test, use `/agentic-paper:review-paper --peer <journal>` instead.
 
@@ -24,7 +24,7 @@ Runs seven independent reviewers, each focused on a single lens, then synthesize
 
 ## The Seven Lenses
 
-Each lens runs as a **forked subagent** (context: fork) so the main conversation stays clean.
+Each lens runs as a **fresh subagent** (general-purpose — never the `fork` type, which would start every lens with this whole conversation and spend the budget the lens exists to protect), so the main conversation stays clean.
 
 | # | Lens | Focus | Agent type |
 |---|---|---|---|
@@ -46,7 +46,7 @@ Each lens runs as a **forked subagent** (context: fork) so the main conversation
 
 ### Phase 1: Spawn 7 reviewers in parallel
 
-In a single message, spawn 7 Task tool calls (one per lens). Each subagent gets:
+In a single message, make 7 `Agent` tool calls (one per lens). Each subagent gets:
 
 - The manuscript path (to re-read with its own context).
 - The lens-specific prompt (below).
@@ -67,7 +67,7 @@ scorecard: { critical: N, major: N, minor: N, score_out_of_10: N }
 
 `evidence` and `change_my_mind` are mandatory on every CRITICAL and MAJOR. A finding without evidence is a MINOR at best.
 
-Lens prompt rubrics are embedded inline below — one summary paragraph per lens. Each forked subagent receives its lens's rubric plus the manuscript path.
+Lens prompt rubrics are embedded inline below — one summary paragraph per lens. Each subagent receives its lens's rubric plus the manuscript path.
 
 **Lens prompt summaries:**
 
@@ -87,7 +87,7 @@ Wait for all 7 lens reports.
 
 **Post-judge hallucination gate.** Any CRITICAL the synthesis introduces that **no lens raised** must be re-verified before it is allowed to stand:
 
-1. Spawn a fresh `claim-verifier` fork (`Task` with `subagent_type=agentic-paper:claim-verifier` and `context=fork`), passing the claim, its evidence, and the manuscript path. Fresh context is the point — the verifier has never seen the synthesis and cannot self-confirm it.
+1. Dispatch `claim-verifier` with the `Agent` tool (`subagent_type: agentic-paper:claim-verifier`), passing the claim, its evidence, and the manuscript path. A named subagent starts with a fresh context and has never seen this conversation. **Never use the `fork` subagent type here:** a fork inherits the whole conversation, draft included, and the check turns into self-confirmation. Fresh context is the point — the verifier has never seen the synthesis and cannot self-confirm it.
 2. If it verifies, keep the CRITICAL and cite the verification in the report.
 3. If it does not verify — or the check is skipped — drop the finding, label it `[JUDGE-HALLUCINATED]` in the synthesis, and **recompute the Executive verdict** without it.
 

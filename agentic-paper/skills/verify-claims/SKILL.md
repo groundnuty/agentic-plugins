@@ -1,8 +1,9 @@
 ---
 name: verify-claims
-description: Run Chain-of-Verification (CoVe) on a draft or a block of text with factual claims. Spawns the `claim-verifier` agent in a forked (fresh) context so it never sees the draft — then reports which claims are supported, contradicted, or unverifiable. Use when user says "verify these citations", "check the claims in X", "did I hallucinate anything", "fact-check this draft", "run CoVe on this", or after any text generation that asserts facts about papers, datasets, or numerical results. NOT for style/grammar review (use `/agentic-paper:proofread`) or substance review (use `/agentic-paper:review-paper`).
+description: Run Chain-of-Verification (CoVe) on a draft or a block of text with factual claims. Dispatches the `claim-verifier` agent in a fresh context (a named subagent, never a fork) so it never sees the draft — then reports which claims are supported, contradicted, or unverifiable. Use when user says "verify these citations", "check the claims in X", "did I hallucinate anything", "fact-check this draft", "run CoVe on this", or after any text generation that asserts facts about papers, datasets, or numerical results. NOT for style/grammar review (use `/agentic-paper:proofread`) or substance review (use `/agentic-paper:review-paper`).
 argument-hint: "[file-or-text-path] [--source <path-or-url>] [--no-fail-closed]"
-allowed-tools: ["Read", "Grep", "Glob", "Task", "Write"]
+allowed-tools: ["Read", "Grep", "Glob", "Agent", "Task", "Write"]
+disallowed-tools: ["Edit", "MultiEdit"]
 ---
 
 <!-- Adapted from pedrohcgs/claude-code-my-workflow (MIT), https://github.com/pedrohcgs/claude-code-my-workflow -->
@@ -36,7 +37,7 @@ Confirm:
 - The `agentic-paper:claim-verifier` agent is **available** (the `agentic-paper` plugin is installed and
   enabled for this project). Check the agent list, not a file path: a plugin agent lives in a
   version-pinned plugin cache, so there is no stable `.claude/agents/…` path to test. If it is missing,
-  say so plainly — CoVe without the forked verifier is not CoVe.
+  say so plainly — CoVe without the fresh-context verifier is not CoVe.
 
 If any fail → surface the failure, do NOT proceed.
 
@@ -66,15 +67,15 @@ Output a claims table:
 
 One question per claim. Make it specific and answerable from the source alone.
 
-### Phase 3 — Spawn `claim-verifier` (forked, fresh context)
+### Phase 3 — Dispatch `claim-verifier` (fresh context — never a fork)
 
 ```
-Task: subagent_type=agentic-paper:claim-verifier, context=fork
+Agent: subagent_type=agentic-paper:claim-verifier
 Prompt: hand over claims table + verification questions + source material pointers.
         Do NOT include the draft text.
 ```
 
-The forked agent runs the CoVe independent-answer step. It has never seen the draft and cannot confirm-bias. It returns a structured verification report.
+A named subagent starts with a fresh context and has never seen this conversation. **Never use the `fork` subagent type here:** a fork inherits the whole conversation, draft included, and the check turns into self-confirmation. The verifier runs the CoVe independent-answer step. It has never seen the draft and cannot confirm-bias. It returns a structured verification report.
 
 ### Phase 4 — Reconcile
 
@@ -105,7 +106,7 @@ Expected output (abridged):
 ## Post-Flight Verification — lit-review_staggered-did.md
 
 **Claims extracted:** 14
-**Verified independently:** 14 (forked claim-verifier)
+**Verified independently:** 14 (fresh-context claim-verifier)
 **Outcome:** PARTIAL — 12 verified, 1 discrepancy, 1 unverifiable
 
 ### Discrepancies
@@ -145,7 +146,7 @@ A citation can pass `/agentic-paper:validate-bib` (the paper is real, the DOI re
 
 ## Cross-references
 
-- [`agentic-paper:claim-verifier`](../../agents/claim-verifier.md) — the forked verifier.
+- [`agentic-paper:claim-verifier`](../../agents/claim-verifier.md) — the fresh-context verifier.
 - `.claude/rules/post-flight-verification.md` — the trigger rule (project scaffold, not shipped by this plugin).
 - MEMORY.md `[LEARN:pattern]` on Chain-of-Verification vs critic-fixer vs cross-artifact review.
 

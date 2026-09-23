@@ -87,7 +87,6 @@ Before assigning any dimension score, run the checks for your paper type. These 
 ### Reduced-form
 - **Sign check.** Does the headline coefficient have the expected sign under the author's theory?
 - **Magnitude check.** Is the coefficient in a reasonable range (not 0.0001, not 10×)?
-- **Dynamics check.** If DiD/event study: do pre-trends look flat? If IV: is the first-stage F-stat > 10?
 - **Clustering check.** Are standard errors clustered at the correct level (treatment unit)?
 - **Sample check.** Is the analysis sample constructed and reported clearly?
 

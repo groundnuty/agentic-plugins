@@ -36,12 +36,12 @@ MEMORY_AGENTS=(domain-referee methods-referee editor proofreader)
 # Fields plugins-reference lists as unsupported in plugin-shipped agent frontmatter.
 BANNED_AGENT_FIELDS=(permissionMode mcpServers hooks)
 
-# The one file exempt from group C. It is byte-identical to upstream blader/humanizer v2.9.1 and
+# The one file exempt from group C. It is byte-identical to upstream blader/humanizer v3.0.0 and
 # carries upstream's own install instructions (`npx skills add blader/humanizer`, the resulting
 # `/humanizer:humanizer` name). C4 verifies that byte-identity, so the exemption cannot hide drift.
 VENDORED_EXEMPT="skills/humanizer/README.md"
 HUMANIZER_UPSTREAM="https://github.com/blader/humanizer.git"
-HUMANIZER_REF="v2.9.1"
+HUMANIZER_REF="v3.0.0"
 HUMANIZER_FILES=(SKILL.md README.md LICENSE)
 
 PASS=0; FAIL=0; SKIP=0
@@ -355,6 +355,22 @@ PY
 )
 [ -z "$broken" ] && ok "C5 every relative markdown link resolves inside the plugin (M3)" \
                  || bad "C5 broken relative links" "$broken"
+
+# C6 — "fork" never means "fresh" (1.0.1). Since Claude Code 2.1.232 a `fork` subagent inherits the
+# whole conversation. Our CoVe dispatches used to say `context=fork` and call that a fresh context,
+# which invites the one dispatch that hands the verifier the draft it must not see.
+forkctx=$(grep -rnE 'context[=:] ?fork' "$PLUGIN_DIR" --include='*.md' | grep -v '/skills/humanizer/')
+[ -z "$forkctx" ] && ok "C6a no context=fork anywhere" || bad "C6a context=fork present" "$forkctx"
+forkfresh=$(grep -rniE '\bfork(ed)?\b' "$PLUGIN_DIR" --include='*.md' | grep -v '/skills/humanizer/' \
+            | grep -viE 'never (use |dispatch it as )?(the |a )?`?fork|not the `fork`|never a fork')
+[ -z "$forkfresh" ] && ok "C6b every mention of fork is a prohibition" || bad "C6b fork used as a positive instruction" "$forkfresh"
+nowarn=""
+while IFS= read -r site; do
+  f=${site%%:*}; ln=$(printf '%s' "$site" | cut -d: -f2)
+  sed -n "$((ln > 3 ? ln - 3 : 1)),$((ln + 3))p" "$f" | grep -qiE 'never.{0,40}fork' || nowarn="$nowarn$site"$'\n'
+done < <(grep -rnE 'subagent_type[=:] ?agentic-paper:claim-verifier' "$PLUGIN_DIR" --include='*.md')
+[ -z "$nowarn" ] && ok "C6c every claim-verifier dispatch carries the never-fork warning" \
+                 || bad "C6c claim-verifier dispatch without the never-fork warning" "$nowarn"
 
 # ---------------------------------------------------------------------------------------------
 group "D · version agreement — claude plugin tag --dry-run (Phase-0 carry-item 4)"

@@ -2,7 +2,7 @@
 name: review-paper
 description: "Comprehensive manuscript review with three modes: single-pass (default), --adversarial critic-fixer loop, and --peer [journal] simulated peer-review pipeline (editor + 2 dispositioned referees + editorial decision, calibrated to a target journal). R&R continuation via --peer --r2/--r3; hostile-editor stress test via --peer --stress. Reviews referenced analysis scripts and runs /agentic-paper:audit-reproducibility on them unless --no-cross-artifact."
 argument-hint: "[paper path] [--adversarial | --peer <journal> [--r2 | --r3 | --stress] [--no-novelty-check]] [--no-cross-artifact]"
-allowed-tools: ["Read", "Grep", "Glob", "Write", "Edit", "Bash", "Task"]
+allowed-tools: ["Read", "Grep", "Glob", "Write", "Edit", "Bash", "Agent", "Task"]
 ---
 
 <!-- Adapted from pedrohcgs/claude-code-my-workflow (MIT), https://github.com/pedrohcgs/claude-code-my-workflow -->
@@ -83,7 +83,7 @@ This mode is materially different from `--adversarial`: adversarial runs the sam
 6. **Save to** `.claude/session-reports/paper_review_[sanitized_name]_round[N].md` (N=1 in default mode; N increments in adversarial mode).
 
 6b. **Cross-artifact integration.** Unless `$ARGUMENTS` contains `--no-cross-artifact`, and if the manuscript references analysis scripts (detected via `\input{scripts/...}`, `%% source:` comments, or filenames matching the analysis-outputs directory), auto-invoke:
-   - a code review of each referenced script — read it and check it actually produces the claimed outputs (forked subagent, results to `.claude/session-reports/cross_artifact_[paper]/review_[script].md`)
+   - a code review of each referenced script — read it and check it actually produces the claimed outputs (a fresh general-purpose subagent, not the `fork` type; results to `.claude/session-reports/cross_artifact_[paper]/review_[script].md`)
    - `/agentic-paper:audit-reproducibility` on the manuscript + outputs dir (results to `.claude/session-reports/cross_artifact_[paper]/reproducibility.md`)
 
    Merge critical cross-artifact findings (code bug invalidates paper claim, reproducibility FAIL) into a new "Cross-Artifact Findings" section at the top of the paper review report. See "Cross-artifact protocol" at the end of this skill for the full contract.
@@ -251,7 +251,7 @@ Phase 2: Fixer
   │
 Phase 3: Re-audit
   │
-  └─ Spawn a FRESH-CONTEXT subagent (via Task, `subagent_type` set to
+  └─ Spawn a FRESH-CONTEXT subagent (via the `Agent` tool, `subagent_type` set to
      general-purpose) to re-read the paper and produce a round-(N+1)
      report. Fresh context prevents anchoring bias — the new reviewer
      sees the edited paper, not the diff.
@@ -335,7 +335,7 @@ Reports: `.claude/session-reports/cross_artifact_[paper]/reproducibility.md`.
 **Novelty-probe Post-Flight (new in v1.7.0).** The editor's novelty probe uses `WebSearch` to check whether the paper's contribution has been made before. WebSearch results can be hallucinated — fabricated prior work, misattributed findings, wrong years. Before the editor's desk review incorporates novelty-probe claims into its decision, those claims must pass Post-Flight Verification per [`/agentic-paper:verify-claims`](../verify-claims/SKILL.md):
 
 1. The editor collects novelty-probe claims (e.g., "Smith 2022 already showed this exact result").
-2. Spawn `claim-verifier` via `Task` with `subagent_type=agentic-paper:claim-verifier` and `context=fork`, passing the claims + verification questions + candidate source URLs. Forked fresh context is the CoVe independence trick.
+2. Dispatch `claim-verifier` with the `Agent` tool (`subagent_type: agentic-paper:claim-verifier`), passing the claims + verification questions + candidate source URLs. A named subagent starts with a fresh context and has never seen this conversation. **Never use the `fork` subagent type here:** a fork inherits the whole conversation, draft included, and the check turns into self-confirmation. The fresh context is the CoVe independence trick.
 3. Only verified claims are allowed into the desk-review narrative. Unverified claims are surfaced separately as "editor could not verify — manual check recommended" rather than presented as established prior work.
 
 Opt-out: `--no-novelty-check` already skips the probe entirely. If the probe runs, Post-Flight is mandatory.
@@ -357,7 +357,7 @@ If the manuscript path doesn't exist or a referenced cross-artifact script is mi
 
 ### Phase 1: Editor desk review
 
-Spawn forked subagent `editor` with the manuscript path and `--peer <JOURNAL>` context. Editor:
+Spawn the `agentic-paper:editor` subagent (named, so it starts fresh) with the manuscript path and `--peer <JOURNAL>` context. Editor:
 - Loads the journal profile if `.claude/references/journal-profiles.md` exists → states "Calibrated to: [journal]" (or notes calibration from general venue norms).
 - Reads abstract + intro + methods overview + headline results.
 - Runs novelty probes (unless `--no-novelty-check`).
@@ -372,8 +372,8 @@ Editor draws 2 DIFFERENT dispositions from journal's Referee-pool weights and as
 ### Phase 2: Two parallel referees, blind to each other
 
 Spawn in parallel:
-- Forked subagent `domain-referee` with disposition D1, peeves P1 → `referee_domain.md`.
-- Forked subagent `methods-referee` with disposition D2, peeves P2 → `referee_methods.md`.
+- The `agentic-paper:domain-referee` subagent with disposition D1, peeves P1 → `referee_domain.md`.
+- The `agentic-paper:methods-referee` subagent with disposition D2, peeves P2 → `referee_methods.md`.
 
 Each referee must include "What would change my mind: [specific ask]" on every MAJOR concern.
 
@@ -381,7 +381,7 @@ Each referee must include "What would change my mind: [specific ask]" on every M
 
 Read both referee reports. **Reduce** their findings: classify each MAJOR concern as FATAL / ADDRESSABLE / TASTE, then produce the editorial decision using the decision rule table in `editor.md`. The decision is a function of what the referees found — the editor is a reducer, not a third referee.
 
-**Post-judge hallucination gate.** The editor may **not** desk-reject or escalate the decision on a CRITICAL reason **neither referee raised**. Any editor-introduced blocker that is not traceable to a referee finding must either be re-verified in a fresh `claim-verifier` fork (`Task` with `subagent_type=agentic-paper:claim-verifier` and `context=fork`, which has never seen the referee reports and so cannot self-confirm), or be dropped, labeled `[JUDGE-HALLUCINATED]` in the decision letter, and the decision recomputed without it. The gate is one-directional: the editor may always downgrade, de-duplicate, or reclassify a referee's concern. See [`/agentic-paper:verify-claims`](../verify-claims/SKILL.md).
+**Post-judge hallucination gate.** The editor may **not** desk-reject or escalate the decision on a CRITICAL reason **neither referee raised**. Any editor-introduced blocker that is not traceable to a referee finding must either be re-verified by a fresh `claim-verifier` (the `Agent` tool with `subagent_type: agentic-paper:claim-verifier` — never the `fork` type, which would inherit the referee reports and self-confirm), or be dropped, labeled `[JUDGE-HALLUCINATED]` in the decision letter, and the decision recomputed without it. The gate is one-directional: the editor may always downgrade, de-duplicate, or reclassify a referee's concern. See [`/agentic-paper:verify-claims`](../verify-claims/SKILL.md).
 
 Report: `.claude/session-reports/peer_review_[paper]/editorial_decision.md`.
 
@@ -436,7 +436,7 @@ If none are present, no cross-artifact work happens and `--no-cross-artifact` is
 **Steps.**
 
 1. Build the list of scripts that produced content in this paper.
-2. Review each in a forked subagent — read it and verify it actually produces the claimed outputs, in whatever language it is written (R, Python, Stata, Julia, shell). This is correctness of the paper's numeric claims, not style. Save to `.claude/session-reports/cross_artifact_[paper]/review_[script].md`. (This template ships no language-specific code-review skill; if you have added one for your stack, invoke it here, otherwise review directly.)
+2. Review each in a fresh subagent (general-purpose, not the `fork` type) — read it and verify it actually produces the claimed outputs, in whatever language it is written (R, Python, Stata, Julia, shell). This is correctness of the paper's numeric claims, not style. Save to `.claude/session-reports/cross_artifact_[paper]/review_[script].md`. (This template ships no language-specific code-review skill; if you have added one for your stack, invoke it here, otherwise review directly.)
 3. Run `/agentic-paper:audit-reproducibility $manuscript scripts/**/_outputs/` once, saving to `.../reproducibility.md`.
 4. Add a **Cross-Artifact Findings** section at the top of the review report: scripts reviewed, reproducibility PASS/FAIL (k of m claims within tolerance), code-quality counts, then three tables — critical paper+code issues (paper claim / code location / issue), code-only issues (follow-up, non-blocking), paper-only issues.
 

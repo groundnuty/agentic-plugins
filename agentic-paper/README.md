@@ -18,7 +18,7 @@ claude plugin install agentic-paper@agentic-plugins --scope project
 | :-- | :-- |
 | `/agentic-paper:review-paper` | Manuscript review: single-pass, `--adversarial` critic-fixer loop, or `--peer <journal>` simulated peer review (editor + 2 dispositioned referees) |
 | `/agentic-paper:seven-pass-review` | Seven independent lenses in parallel, then synthesis. ~7× the token cost of single-pass |
-| `/agentic-paper:verify-claims` | Chain-of-Verification (CoVe) on a draft via a forked, fresh-context verifier |
+| `/agentic-paper:verify-claims` | Chain-of-Verification (CoVe) on a draft via a fresh-context verifier (never a fork) |
 | `/agentic-paper:respond-to-referees` | Drafts a response document from referee comments (ships its own output template) |
 | `/agentic-paper:audit-reproducibility` | Numeric-claim reproducibility audit: manuscript numbers vs. script outputs |
 | `/agentic-paper:analyze-paper` | Structured read of a paper |
@@ -51,13 +51,13 @@ which is exactly the independence the mechanism buys.
 ## Vendored third-party content
 
 `skills/humanizer/` is **not ours**. It is [blader/humanizer](https://github.com/blader/humanizer)
-`v2.9.1` by Siqi Chen, redistributed under the **MIT License**.
+`v3.0.0` by Siqi Chen, redistributed under the **MIT License**.
 
 * Full licence text: [`skills/humanizer/LICENSE`](skills/humanizer/LICENSE)
 * Attribution, the byte-identity contract, and how to bump the pin:
   [`skills/humanizer/ATTRIBUTION.md`](skills/humanizer/ATTRIBUTION.md)
 
-`SKILL.md`, `README.md` and `LICENSE` in that directory are byte-identical to upstream `v2.9.1`
+`SKILL.md`, `README.md` and `LICENSE` in that directory are byte-identical to upstream `v3.0.0`
 and the test suite asserts it. Upstream's own README documents a different install path and the
 name `/humanizer:humanizer`; here the skill is `/agentic-paper:humanizer` and needs no separate
 install. Those upstream strings are the single documented exception to the namespacing rule below.

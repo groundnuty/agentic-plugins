@@ -3,7 +3,7 @@ name: respond-to-referees
 description: Generate a structured response-to-referees document from a referee report and the revised manuscript. Maps each referee comment to the specific revision, classifies coverage (addressed / partially / deferred / disagreement), and drafts polite but firm responses. Use during the R&R (revise-and-resubmit) stage of paper revision.
 argument-hint: "[referee-report-path] [revised-manuscript-path] [--no-verify]"
 disable-model-invocation: true
-allowed-tools: ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "Task"]
+allowed-tools: ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "Agent", "Task"]
 effort: high
 ---
 
@@ -89,7 +89,7 @@ Write the output to `response-to-referees.md` (matching the template filename) o
 1. **Header** — journal, manuscript ID, revision round, date.
 2. **Cover paragraph** — one paragraph thanking the editor and referees, summarizing the major changes at a high level.
 3. **Per-referee sections** — for each referee, a numbered list of responses produced in Step 4.
-4. **Concern matrix** — at the end, a single table summarizing every concern, classification, and response location for editor convenience.
+4. **Concern matrix** — at the end, a single table summarizing every concern: ID, classification, promised action, affected files or exhibits, whether code had to be re-run, and response location. This is the obligation ledger — nothing promised in the letter without a row, no row without its evidence trail.
 
 ### Step 5.5: Post-Flight Verification (MANDATORY, CoVe)
 
@@ -99,7 +99,7 @@ The response document's most hallucination-prone content is the set of "we added
 
 1. **Extract revision-location claims** — every "we added / we modified / we revised X (page Y, line Z / Section N)" assertion in the response document.
 2. **Generate verification questions** — "Does the revised manuscript actually contain the revision claimed at page Y, line Z? Does it match the description?"
-3. **Spawn `claim-verifier`** via `Task` with `subagent_type=agentic-paper:claim-verifier` and `context=fork`. Hand it: the claims table, the verification questions, the path to the revised manuscript. Do NOT include the response draft.
+3. **Dispatch `claim-verifier`** with the `Agent` tool (`subagent_type: agentic-paper:claim-verifier`). A named subagent starts with a fresh context and has never seen this conversation. **Never use the `fork` subagent type here:** a fork inherits the whole conversation, draft included, and the check turns into self-confirmation. Hand it: the claims table, the verification questions, the path to the revised manuscript. Do NOT include the response draft.
 4. **Reconcile:** PASS → attach green block. PARTIAL / FAIL → rewrite the affected response entries using the verifier's evidence. A response that says "we added robustness check X on page 34" when X is actually on page 27 (or not at all) is worse than a "Deferred" classification.
 
 Downgrade to the classification the evidence supports:

@@ -2,7 +2,7 @@
 name: audit-reproducibility
 description: Cross-check numeric claims in a manuscript against the actual outputs produced by the analysis pipeline. Report PASS/FAIL per claim against tolerance thresholds. Use before submission and before releasing a replication package.
 argument-hint: "[manuscript path] [outputs-dir] (outputs-dir defaults to the project's analysis-outputs directory)"
-allowed-tools: ["Read", "Grep", "Glob", "Write", "Bash", "Task"]
+allowed-tools: ["Read", "Grep", "Glob", "Write", "Bash", "Agent", "Task"]
 effort: high
 ---
 

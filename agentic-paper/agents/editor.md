@@ -228,19 +228,17 @@ Peeves are drawn at referee-selection time and injected into referee prompts. Ke
 
 ### Critical peeves (sample 1 per referee in default, 2 per referee in stress)
 
-Seed pool — 29 entries. Expand as you use the system and encounter recurring patterns.
+Seed pool — 26 entries. Expand as you use the system and encounter recurring patterns.
 
 - Suspicious of too-clean results (point estimates on round numbers, p-values exactly at 0.01).
 - Wants at least 5 robustness specifications, each addressing a different threat.
 - Insists on correct standard-error clustering for the unit of treatment.
 - Requires a formal theoretical model for any structural claim.
-- Pre-trends must be shown for any DiD, explicitly and graphically.
 - Power calculations required for null results.
 - Sample construction must be documented end-to-end (raw → analysis sample).
 - Attrition / non-response must be analyzed, not footnoted.
 - Multiple hypothesis testing corrections required when the paper runs >5 regressions.
 - Control variables must be motivated theoretically, not kitchen-sink.
-- Instrumental variables: wants a narrative justification of the exclusion restriction, not just an F-stat.
 - Structural estimation: parameter plausibility check required (compare to prior literature).
 - Counterfactuals must be inside the support of the data.
 - Magnitude interpretation: what does a coefficient of 0.3 mean in dollars / percentage points / effect sizes relative to the mean?
@@ -257,8 +255,7 @@ Seed pool — 29 entries. Expand as you use the system and encounter recurring p
 - Identification assumption must be stated in one testable sentence.
 - Notation drift — a symbol defined as X in §2 but used with a different meaning in §4 or §5.
 - Seed-dependent results — any bootstrap, simulation, or stochastic procedure without a `set.seed` (or equivalent) stated near the top of the script.
-- Covariate balance absent — DiD, matching, or IV papers without a balance table for pre-treatment covariates across treatment status.
-- Overlap / common support — matching, RD, or propensity-score work without density overlap / bandwidth-robustness evidence at the treatment boundary.
+- Comparability of the compared groups is asserted rather than shown — no table establishing that the units being compared are alike on pre-existing characteristics.
 
 ### Constructive peeves (sample 1 per referee)
 

@@ -2,11 +2,22 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "agentic-paper",
   "displayName": "Agentic Paper",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Academic paper suite: review, claim verification (CoVe), proofreading, referee response, reproducibility audit, TikZ discipline, BibTeX validation, texlab LSP.",
-  "author": { "name": "groundnuty" },
+  "author": {
+    "name": "groundnuty"
+  },
   "homepage": "https://github.com/groundnuty/agentic-repo-template",
   "repository": "https://github.com/groundnuty/agentic-plugins",
   "license": "MIT",
-  "keywords": ["paper", "review", "latex", "tikz", "bibtex", "texlab", "cove", "academic"]
+  "keywords": [
+    "paper",
+    "review",
+    "latex",
+    "tikz",
+    "bibtex",
+    "texlab",
+    "cove",
+    "academic"
+  ]
 }
