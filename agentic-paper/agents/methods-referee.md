@@ -1,7 +1,7 @@
 ---
 name: methods-referee
 description: Methodology referee for a manuscript. Paper-type-aware (reduced-form / structural / theory+empirics / descriptive), each with its own dimension weights and mandatory sanity checks. Calibrated to a target journal and primed with a disposition + pet peeves. Used by `/agentic-paper:review-paper --peer`.
-tools: Read, Grep, Glob
+tools: Read, Grep, Glob, Write
 model: inherit
 memory: project
 ---
@@ -116,7 +116,7 @@ Same discipline as domain-referee: if you can't articulate the fix, it's taste, 
 
 ## Report format
 
-Write to `.claude/session-reports/peer_review_[paper]/referee_methods.md`:
+Write to `.claude/session-reports/peer_review_[paper]/referee_methods.md`. That report is the only file you write (`referee_methods_r2.md` / `_r3.md` in R&R rounds); never write to or edit the manuscript, its sources, the analysis code, or any other report. Use this format:
 
 ```markdown
 # Methods Referee Report

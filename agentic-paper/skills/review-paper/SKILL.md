@@ -17,7 +17,6 @@ Produce a thorough, constructive review of an academic manuscript — the kind o
 > - **`/agentic-paper:review-paper`** (this skill) — single comprehensive report, optional `--adversarial` critic-fixer loop, or `--peer <journal>` simulated peer-review pipeline. Best for **most drafts**.
 > - **`/agentic-paper:seven-pass-review`** — seven independent lenses in parallel (abstract, intro, methods, results, robustness, prose, citations) then synthesized. Heavier (7× token cost). Best for **submission-ready drafts** or **R&R stage** where you need maximum coverage.
 > - **`/agentic-paper:respond-to-referees`** — if you already have referee comments and need a response document, not another review.
-> - **`/slide-excellence`** — for lecture slides, not papers.
 
 **Input:** `$ARGUMENTS` — path to a paper (`.tex`, `.md`, `.pdf`, `.docx`, `.qmd`, …), or a bare filename to resolve against the project's document directories. Optional flags:
 
@@ -48,7 +47,7 @@ Use when: preparing a pre-submission draft, responding to a journal-desk rejecti
 
 Simulated editorial pipeline: **editor desk review → referee selection → 2 blind referees with different dispositions → editorial synthesis**. Calibrated to a target journal (from your `.claude/references/journal-profiles.md` if present, else general venue norms). Use when: pre-submission dress rehearsal, choosing between target journals, R&R planning.
 
-This mode is materially different from `--adversarial`: adversarial runs the same critic 5× with fresh context; `--peer` runs **different personas** (editor + 2 dispositioned referees drawn from 6-way taxonomy: STRUCTURAL / CREDIBILITY / MEASUREMENT / POLICY / THEORY / SKEPTIC) whose priors are *deliberately different* and who are blind to each other.
+This mode is materially different from `--adversarial`: adversarial re-runs one critic, in a fresh context each round, until a round turns up nothing new (5-round fallback cap); `--peer` runs **different personas** (editor + 2 dispositioned referees drawn from 6-way taxonomy: STRUCTURAL / CREDIBILITY / MEASUREMENT / POLICY / THEORY / SKEPTIC) whose priors are *deliberately different* and who are blind to each other.
 
 **Agents used** (all reimplemented in this template; adapted from [Hugo Sant'Anna's clo-author](https://github.com/hugosantanna/clo-author) with permission):
 
@@ -65,11 +64,11 @@ This mode is materially different from `--adversarial`: adversarial runs the sam
 ---
 
 
-## Steps (both modes)
+## Steps (default and `--adversarial` modes; `--peer` follows its own workflow below, after step 1)
 
-1. **Locate and read the manuscript.** First strip flags (`--adversarial`, `--no-cross-artifact`) from `$ARGUMENTS` to get the bare manuscript path. Check:
+1. **Locate and read the manuscript.** First strip every flag (and the journal name after `--peer`) from `$ARGUMENTS` to get the bare manuscript path. Check:
    - Direct path (bare path from step 1)
-   - `papers/$ARGUMENTS` and `input/$ARGUMENTS` (per `knowledge-work-structure.md`)
+   - `papers/$ARGUMENTS` and `input/$ARGUMENTS` (the layout in the "Knowledge-work directory structure" section of the project's AGENTS.md)
    - Glob for partial matches
 
 2. **Read the full paper** end-to-end. For long PDFs, page through with the Read tool's `pages` parameter (up to 20 pages per request) — no pre-splitting needed. See `.claude/rules/pdf-processing.md`.
@@ -245,7 +244,7 @@ Phase 2: Fixer
   ├─ Present proposed edits to the user grouped by severity (Critical →
   │  Major → Minor). Ask for approval: "apply all", "apply critical+major
   │  only", "review each", or "abort".
-  ├─ Apply approved edits with Edit / Edit tools.
+  ├─ Apply approved edits with the Edit tool.
   ├─ If the manuscript is a compile target (`.tex` / `.qmd`), re-compile
   │  and verify it still builds.
   │
@@ -332,7 +331,7 @@ Unless `--no-cross-artifact` is set, auto-invoke `/agentic-paper:audit-reproduci
 
 Reports: `.claude/session-reports/cross_artifact_[paper]/reproducibility.md`.
 
-**Novelty-probe Post-Flight (new in v1.7.0).** The editor's novelty probe uses `WebSearch` to check whether the paper's contribution has been made before. WebSearch results can be hallucinated — fabricated prior work, misattributed findings, wrong years. Before the editor's desk review incorporates novelty-probe claims into its decision, those claims must pass Post-Flight Verification per [`/agentic-paper:verify-claims`](../verify-claims/SKILL.md):
+**Novelty-probe Post-Flight.** The editor's novelty probe uses `WebSearch` to check whether the paper's contribution has been made before. WebSearch results can be hallucinated — fabricated prior work, misattributed findings, wrong years. Before the editor's desk review incorporates novelty-probe claims into its decision, those claims must pass Post-Flight Verification per [`/agentic-paper:verify-claims`](../verify-claims/SKILL.md):
 
 1. The editor collects novelty-probe claims (e.g., "Smith 2022 already showed this exact result").
 2. Dispatch `claim-verifier` with the `Agent` tool (`subagent_type: agentic-paper:claim-verifier`), passing the claims + verification questions + candidate source URLs. A named subagent starts with a fresh context and has never seen this conversation. **Never use the `fork` subagent type here:** a fork inherits the whole conversation, draft included, and the check turns into self-confirmation. The fresh context is the CoVe independence trick.
@@ -363,11 +362,11 @@ Spawn the `agentic-paper:editor` subagent (named, so it starts fresh) with the m
 - Runs novelty probes (unless `--no-novelty-check`).
 - Either **DESK REJECT** (pipeline terminates with rejection letter) or **SEND OUT**.
 
-Report: `.claude/session-reports/peer_review_[paper]/desk_review.md`.
+Report (the editor writes it; this skill only reads it): `.claude/session-reports/peer_review_[paper]/desk_review.md`.
 
 ### Phase 1b: Referee selection (inside editor)
 
-Editor draws 2 DIFFERENT dispositions from journal's Referee-pool weights and assigns each referee 1 critical + 1 constructive peeve (stress mode: 2 critical + 1 constructive). Appended to `desk_review.md`.
+Editor draws 2 DIFFERENT dispositions from journal's Referee-pool weights and assigns each referee 1 critical + 1 constructive peeve (stress mode: 2 critical + 1 constructive). Recorded in `desk_review.md` as its Referee Selection section.
 
 ### Phase 2: Two parallel referees, blind to each other
 
@@ -375,7 +374,7 @@ Spawn in parallel:
 - The `agentic-paper:domain-referee` subagent with disposition D1, peeves P1 → `referee_domain.md`.
 - The `agentic-paper:methods-referee` subagent with disposition D2, peeves P2 → `referee_methods.md`.
 
-Each referee must include "What would change my mind: [specific ask]" on every MAJOR concern.
+Each referee writes its own report and must include "What would change my mind: [specific ask]" on every MAJOR concern.
 
 ### Phase 3: Editor synthesis (reduce → judge, with the hallucination gate)
 
@@ -383,7 +382,7 @@ Read both referee reports. **Reduce** their findings: classify each MAJOR concer
 
 **Post-judge hallucination gate.** The editor may **not** desk-reject or escalate the decision on a CRITICAL reason **neither referee raised**. Any editor-introduced blocker that is not traceable to a referee finding must either be re-verified by a fresh `claim-verifier` (the `Agent` tool with `subagent_type: agentic-paper:claim-verifier` — never the `fork` type, which would inherit the referee reports and self-confirm), or be dropped, labeled `[JUDGE-HALLUCINATED]` in the decision letter, and the decision recomputed without it. The gate is one-directional: the editor may always downgrade, de-duplicate, or reclassify a referee's concern. See [`/agentic-paper:verify-claims`](../verify-claims/SKILL.md).
 
-Report: `.claude/session-reports/peer_review_[paper]/editorial_decision.md`.
+Report (the editor writes it; this skill only reads it): `.claude/session-reports/peer_review_[paper]/editorial_decision.md`.
 
 ### Phase 4: Summary
 

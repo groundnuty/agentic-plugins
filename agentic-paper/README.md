@@ -45,7 +45,7 @@ which is exactly the independence the mechanism buys.
 | :-- | :-- | :-- |
 | **Hooks** (`notify.sh`, `log-reminder.py`, `verify-reminder.py`) | project scaffold | Paper hooks are **opt-in by design** — the user wires them from `settings.local.json`. A plugin hook is active whenever the plugin is enabled, which would silently convert opt-in to mandatory. |
 | **MCP servers** | project `.mcp.json.example` | Keeps the documented per-server approval path and the existing `mcp__papers__*` permission rules unchanged. |
-| **Rules** | project scaffold | Plugins cannot ship rules. `.claude/rules/post-flight-verification.md` and friends stay scaffold-side; skills reference them as **project** paths, never plugin-relative ones. |
+| **Rules** | project `AGENTS.md` | Plugins cannot ship rules. The project guidance these skills rely on (post-flight verification, the knowledge-work directory layout, project conventions) lives in the project's `AGENTS.md` since template v0.5.0; skills point to it by section name, never by a plugin-relative path. |
 | **`journal-profile-template.md`** | project scaffold | You copy it and fill it in at `.claude/references/journal-profiles.md`. A version-pinned plugin cache is the wrong home for a file the user edits. |
 
 ## Vendored third-party content

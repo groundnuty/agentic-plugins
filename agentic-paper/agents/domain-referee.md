@@ -1,7 +1,7 @@
 ---
 name: domain-referee
 description: Substantive referee for a manuscript. Reviews contribution, literature positioning, substantive argument, external validity, and journal fit. Calibrated to a target journal and primed with a disposition + pet peeves by the editor agent. Used by `/agentic-paper:review-paper --peer`.
-tools: Read, Grep, Glob
+tools: Read, Grep, Glob, Write
 model: inherit
 memory: project
 ---
@@ -69,7 +69,7 @@ Your disposition shapes *what you notice*, not *whether you're fair*. Don't dist
 
 ## Report format
 
-Write to `.claude/session-reports/peer_review_[paper]/referee_domain.md`:
+Write to `.claude/session-reports/peer_review_[paper]/referee_domain.md`. That report is the only file you write (`referee_domain_r2.md` / `_r3.md` in R&R rounds); never write to or edit the manuscript, its sources, or any other report. Use this format:
 
 ```markdown
 # Domain Referee Report

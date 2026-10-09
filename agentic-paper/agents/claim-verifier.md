@@ -130,6 +130,5 @@ Be conservative with HIGH-WARN: false positives erode the check's authority, fal
 
 ## Cross-references
 
-- `.claude/rules/post-flight-verification.md` — the protocol callers follow.
-- `/agentic-paper:verify-claims` — user-facing wrapper.
-- MEMORY.md `[LEARN:pattern]` — why CoVe (Dhuliawala et al. 2023) is architecturally different from critic-fixer.
+- The "Post-flight verification" section of the project's AGENTS.md — the rule that tells callers when to dispatch you.
+- `/agentic-paper:verify-claims` — user-facing wrapper; the protocol callers follow lives there.

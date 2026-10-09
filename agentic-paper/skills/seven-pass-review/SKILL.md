@@ -1,10 +1,9 @@
 ---
 name: seven-pass-review
-description: Mechanize Pattern 15 — the seven-pass adversarial review protocol for academic manuscripts. Spawns 7 fresh subagents in parallel (abstract, intro, methods, results, robustness, prose, citations), then synthesizes a prioritized revision checklist. Use for submission-ready or R&R-stage papers where single-pass review isn't enough.
+description: Seven-pass adversarial review protocol for academic manuscripts. Spawns 7 fresh subagents in parallel (abstract, intro, methods, results, robustness, prose, citations), then synthesizes a prioritized revision checklist. Use for submission-ready or R&R-stage papers where single-pass review isn't enough.
 argument-hint: "[manuscript path]"
 disable-model-invocation: true
 allowed-tools: ["Read", "Grep", "Glob", "Write", "Bash", "Agent", "Task"]
-effort: high
 ---
 
 <!-- Adapted from pedrohcgs/claude-code-my-workflow (MIT), https://github.com/pedrohcgs/claude-code-my-workflow -->
@@ -12,7 +11,7 @@ effort: high
 
 # Seven-Pass Adversarial Review
 
-Runs seven independent reviewers, each focused on a single lens, then synthesizes their findings into one prioritized revision plan. Pattern 15 from the workflow guide, mechanized.
+Runs seven independent reviewers, each focused on a single lens, then synthesizes their findings into one prioritized revision plan.
 
 **Why seven passes?** A single-agent review blends lenses and softens each one. Seven fresh subagents each approach the paper with a full context budget for their own lens, then a synthesizer resolves conflicts and de-duplicates.
 
@@ -24,17 +23,17 @@ Runs seven independent reviewers, each focused on a single lens, then synthesize
 
 ## The Seven Lenses
 
-Each lens runs as a **fresh subagent** (general-purpose — never the `fork` type, which would start every lens with this whole conversation and spend the budget the lens exists to protect), so the main conversation stays clean.
+Each lens runs as a **fresh subagent** (general-purpose — never the `fork` type, which would start every lens with this whole conversation and spend the budget the lens exists to protect), so the main conversation stays clean. All seven are general-purpose, Methods and Prose included: this plugin's named agents (`agentic-paper:methods-referee`, `agentic-paper:proofreader`, …) each write only their own fixed report file, never a `lens_[N]_*.md`, so they cannot serve as lenses.
 
-| # | Lens | Focus | Agent type |
-|---|---|---|---|
-| 1 | Abstract audit | Does the abstract state the question, method, result, and contribution? Does it match the paper? | general-purpose |
-| 2 | Intro structure | Does the intro follow Cochrane / Varian framework? Literature placement? Contribution clarity? | general-purpose |
-| 3 | Methods / identification | Are assumptions stated? Is identification credible? Are alternatives addressed? | domain-reviewer |
-| 4 | Results + tables | Do tables read standalone? Is magnitude + significance discussed? Units consistent? | general-purpose |
-| 5 | Robustness | Are obvious threats pre-empted? Is the robustness section convincing or theatrical? | general-purpose |
-| 6 | Prose quality | Sentence-level clarity, hedging, passive voice, paragraph cohesion | proofreader |
-| 7 | Citation audit | Invokes `/agentic-paper:validate-bib --semantic`; checks cite-claim direction for top-10 works | general-purpose |
+| # | Lens | Focus |
+|---|---|---|
+| 1 | Abstract audit | Does the abstract state the question, method, result, and contribution? Does it match the paper? |
+| 2 | Intro structure | Does the intro follow Cochrane / Varian framework? Literature placement? Contribution clarity? |
+| 3 | Methods / identification | Are assumptions stated? Is identification credible? Are alternatives addressed? |
+| 4 | Results + tables | Do tables read standalone? Is magnitude + significance discussed? Units consistent? |
+| 5 | Robustness | Are obvious threats pre-empted? Is the robustness section convincing or theatrical? |
+| 6 | Prose quality | Sentence-level clarity, hedging, passive voice, paragraph cohesion |
+| 7 | Citation audit | Invokes `/agentic-paper:validate-bib --semantic`; checks cite-claim direction for top-10 works |
 
 ## Workflow
 
@@ -173,11 +172,10 @@ For cheaper alternatives:
 - `/agentic-paper:review-paper` — the single-pass and `--adversarial` modes (cheaper, faster).
 - `/agentic-paper:validate-bib` — invoked by Lens 7.
 - `/agentic-paper:audit-reproducibility` — complementary; numeric-claims side of the audit.
-- Workflow guide, Pattern 15 — the narrative explanation of why seven lenses.
 
-## Exit behavior
+## Verdict
 
-- Exits 0 always (review is informational). The synthesis report's "Executive verdict" is the gate.
+- The review is informational and has no exit status — it is a model-run skill, not a script. The synthesis report's "Executive verdict" is the gate.
 - Any `CRITICAL` at the top of the synthesis should block submission until resolved.
 
 ## What this skill does NOT do

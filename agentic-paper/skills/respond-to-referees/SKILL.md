@@ -4,7 +4,6 @@ description: Generate a structured response-to-referees document from a referee 
 argument-hint: "[referee-report-path] [revised-manuscript-path] [--no-verify]"
 disable-model-invocation: true
 allowed-tools: ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "Agent", "Task"]
-effort: high
 ---
 
 <!-- Adapted from pedrohcgs/claude-code-my-workflow (MIT), https://github.com/pedrohcgs/claude-code-my-workflow -->
@@ -166,7 +165,7 @@ If `latexdiff` is unavailable and cannot be installed, say so in the final messa
 ## Cross-References
 
 - For first-pass manuscript review **before** receiving referee comments, use `/agentic-paper:review-paper`.
-- For substantive content audits during revision, use `/slide-excellence` (works on `.tex` manuscripts via the domain-reviewer agent).
+- For a substantive content audit of the revised manuscript, use `/agentic-paper:review-paper --peer <journal>`, whose `agentic-paper:domain-referee` reviews substance.
 - Save the response to `.claude/session-reports/` if you want a permanent record alongside other quality reports.
 
 ## Verification

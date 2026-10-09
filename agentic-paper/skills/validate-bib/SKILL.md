@@ -29,7 +29,7 @@ Report saved to `.claude/session-reports/bib_audit_[structural|semantic].md`.
    - Extract all unique citation keys used.
 
 3. **Cross-reference:**
-   - **Missing entries (CRITICAL):** cited in lectures, absent from `.bib`.
+   - **Missing entries (CRITICAL):** cited in the manuscript, absent from `.bib`.
    - **Unused entries (informational):** in `.bib` but never cited.
    - **Typo candidates:** keys within edit-distance 2 of a `.bib` key (e.g., `Smith2020` vs `Smth2020`).
 
@@ -47,13 +47,12 @@ Report saved to `.claude/session-reports/bib_audit_[structural|semantic].md`.
 ```
 **/*.tex
 **/*.qmd
-guide/*.qmd
 **/*.md
 ```
 
 ### Bibliography location
 
-`Bibliography_base.bib` at repo root by default; override via CLAUDE.md.
+`Bibliography_base.bib` at repo root by default; override in the project section of AGENTS.md.
 
 ## Mode 2: Semantic (`--semantic`)
 
@@ -202,11 +201,13 @@ _checked N/M cited entries (K skipped: no DOI, J RETRY)_
 5. Review style-consistency notes.
 ```
 
-## Exit behavior
+## Verdict
 
-- **Structural:** exit 0; report enumerates issues.
-- **Semantic:** exit 0 if only LOW findings; exit 1 on any CRITICAL — which now includes any MISMATCH, RETRACTED, or dead-DOI UNRESOLVABLE from 2e. Usable as a pre-submission gate.
-- A `RETRY` (network) verdict never sets the exit code by itself, but it must appear in the report — an unchecked cite is not a passing cite.
+The skill reports a verdict; it has no exit status (it is a model-run skill, not a script).
+
+- **Structural:** no PASS/FAIL; the report enumerates issues.
+- **Semantic:** `PASS` if only LOW findings; `FAIL` on any CRITICAL — which includes any MISMATCH, RETRACTED, or dead-DOI UNRESOLVABLE from 2e. Treat a FAIL as a pre-submission blocker.
+- A `RETRY` (network) verdict never makes the result FAIL by itself, but it must appear in the report — an unchecked cite is not a passing cite.
 
 ## Cross-references
 

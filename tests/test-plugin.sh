@@ -35,6 +35,18 @@ AGENTS=(claim-verifier domain-referee methods-referee editor proofreader)
 MEMORY_AGENTS=(domain-referee methods-referee editor proofreader)
 # Fields plugins-reference lists as unsupported in plugin-shipped agent frontmatter.
 BANNED_AGENT_FIELDS=(permissionMode mcpServers hooks)
+# Names that came over from the upstream project but were never shipped here (C9c). A reference
+# to one reads as an instruction to run something that does not exist.
+DEAD_SLASH_NAMES=(slide-excellence lit-review research-ideation compile-latex extract-tikz commit)
+DEAD_AGENT_NAMES=(domain-reviewer)
+# Rule files a consumer repo no longer has (C10). Template v0.5.0 composes every always-on rule
+# into the project's AGENTS.md (init.sh compose_agents_rules) and moves project-conventions.md
+# below its managed region; CLAUDE.md is retired outright (D59). Path-scoped rules
+# (operations, pdf-processing, latex-bibtex-discipline, …) still exist and are NOT listed here.
+RETIRED_RULES=(post-flight-verification knowledge-work-structure project-conventions autonomous-work
+               pr-discipline session-logging reading-before-editing citation-discipline
+               prompt-shaping writing-quality humanize-prose cross-artifact-review
+               proofreading-protocol code-craft testing-discipline CLAUDE)
 
 # The one file exempt from group C. It is byte-identical to upstream blader/humanizer v3.0.0 and
 # carries upstream's own install instructions (`npx skills add blader/humanizer`, the resulting
@@ -356,6 +368,17 @@ PY
 [ -z "$broken" ] && ok "C5 every relative markdown link resolves inside the plugin (M3)" \
                  || bad "C5 broken relative links" "$broken"
 
+# C7 — no skill or agent pins effort or a model (1.0.2). Skill `effort` OVERRIDES the session
+# level, so `effort: high` in a repo running at xhigh made the deep-review skills think LESS.
+# D43 rejected upstream's agent pins for the same reason: they override the user's choice.
+pins=$(for f in "$PLUGIN_DIR"/skills/*/SKILL.md "$PLUGIN_DIR"/agents/*.md; do
+         case "$f" in */skills/humanizer/*) continue ;; esac
+         awk -v f="${f#"$PLUGIN_DIR"/}" 'NR==1 && /^---/ {fm=1; next} fm && /^---/ {exit}
+           fm && (/^effort:/ || (/^model:/ && !/^model: *inherit *$/)) {print f ": " $0}' "$f"
+       done)
+[ -z "$pins" ] && ok "C7 no skill or agent pins effort or a model (they inherit the session's)" \
+               || bad "C7 effort/model pinned in frontmatter" "$pins"
+
 # C6 — "fork" never means "fresh" (1.0.1). Since Claude Code 2.1.232 a `fork` subagent inherits the
 # whole conversation. Our CoVe dispatches used to say `context=fork` and call that a fresh context,
 # which invites the one dispatch that hands the verifier the draft it must not see.
@@ -371,6 +394,96 @@ while IFS= read -r site; do
 done < <(grep -rnE 'subagent_type[=:] ?agentic-paper:claim-verifier' "$PLUGIN_DIR" --include='*.md')
 [ -z "$nowarn" ] && ok "C6c every claim-verifier dispatch carries the never-fork warning" \
                  || bad "C6c claim-verifier dispatch without the never-fork warning" "$nowarn"
+
+# C8 — an agent told to write a file holds the tool for it (1.0.2). The editor, both referees and
+# the proofreader were told "Write to …/desk_review.md" with tools: Read, Grep, Glob — a report
+# that cannot be saved. The claim-verifier is the opposite case: it must stay read-only and
+# memoryless, because it is the fresh-context CoVe verifier.
+agent_tools=$(python3 - "$PLUGIN_DIR" <<'PY'
+import pathlib, re, sys
+root = pathlib.Path(sys.argv[1])
+# "Write to `path`", "Save each report to `path`", "Append to `desk_review.md`": a write verb,
+# up to three words, then to/into and a backticked target.
+intent = re.compile(r"\b(write|save|append)s?\b([ \t]+\w+){0,3}?[ \t]+(to|into)[ \t]+`[^`\n]+`", re.I)
+miss, cv = [], []
+for p in sorted((root / "agents").glob("*.md")):
+    m = re.match(r"^---\n(.*?)\n---\n(.*)$", p.read_text(), re.S)
+    if not m: continue
+    fm, body = m.group(1), m.group(2)
+    t = re.search(r"^tools:[ \t]*(.*)$", fm, re.M)
+    tools = {x.strip() for x in t.group(1).split(",")} if t else set()
+    hit = intent.search(body)
+    if hit and "Write" not in tools:
+        miss.append(f"A|agents/{p.name}: says \"{hit.group(0)}\" but tools: {', '.join(sorted(tools))}")
+    if p.name == "claim-verifier.md":
+        for w in sorted(tools & {"Write", "Edit", "MultiEdit", "NotebookEdit"}):
+            cv.append(f"B|agents/{p.name}: has {w} in tools")
+        if re.search(r"^memory\s*:", fm, re.M):
+            cv.append(f"B|agents/{p.name}: has a memory: field")
+print("\n".join(miss + cv))
+PY
+)
+# one line per hit, tagged A| or B| by sub-test
+c8a=$(printf '%s\n' "$agent_tools" | sed -n 's/^A|//p')
+c8b=$(printf '%s\n' "$agent_tools" | sed -n 's/^B|//p')
+[ -z "$c8a" ] && ok "C8a every agent told to write a file has Write in tools:" \
+              || bad "C8a agent told to write a file it has no tool for" "$c8a"
+[ -z "$c8b" ] && ok "C8b claim-verifier has no Write/Edit tool and no memory: (fresh-context CoVe)" \
+              || bad "C8b claim-verifier can write or remember" "$c8b"
+
+# C9 — every agent and skill a file names is one this plugin ships (1.0.2). Upstream text named
+# /slide-excellence, /lit-review, /commit, a "domain-reviewer" agent, … none of which exist here.
+# The shipped sets are read from disk (agents/*.md name:, skills/*/SKILL.md), not from the arrays
+# above, so this cannot agree with a stale inventory. Humanizer is vendored upstream text.
+unshipped=$(python3 - "$PLUGIN_DIR" "${DEAD_SLASH_NAMES[*]}" "${DEAD_AGENT_NAMES[*]}" <<'PY'
+import pathlib, re, sys
+root = pathlib.Path(sys.argv[1])
+dead_slash, dead_agent = sys.argv[2].split(), sys.argv[3].split()
+agents = set()
+for p in (root / "agents").glob("*.md"):
+    m = re.search(r"^name:[ \t]*(\S+)", p.read_text(), re.M)
+    if m: agents.add(m.group(1))
+skills = {p.parent.name for p in root.glob("skills/*/SKILL.md")}
+builtin = {"general-purpose", "Explore", "Plan"}
+out = {"a": [], "b": [], "c": []}
+for p in sorted(root.rglob("*.md")):
+    rel = p.relative_to(root).as_posix()
+    if rel.startswith("skills/humanizer/"): continue
+    for n, line in enumerate(p.read_text().splitlines(), 1):
+        for m in re.finditer(r"agentic-paper:([A-Za-z0-9_-]+)", line):
+            if m.group(1) not in agents | skills:
+                out["a"].append(f"A|{rel}:{n}: agentic-paper:{m.group(1)}")
+        for m in re.finditer(r"subagent_type\s*[=:]\s*`?([A-Za-z0-9_:.-]+)", line):
+            v = m.group(1).rstrip(".")   # a sentence-final period is not part of the name
+            if v not in builtin and not (v.startswith("agentic-paper:") and v.split(":", 1)[1] in agents):
+                out["b"].append(f"B|{rel}:{n}: subagent_type {v}")
+        for d in dead_slash:
+            if re.search(rf"(?<![\w/:.-])/{re.escape(d)}(?![\w/:-]|\.\w)", line):
+                out["c"].append(f"C|{rel}:{n}: /{d}")
+        for d in dead_agent:
+            if re.search(rf"(?<![\w-]){re.escape(d)}(?![\w-])", line):
+                out["c"].append(f"C|{rel}:{n}: {d}")
+print("\n".join(out["a"] + out["b"] + out["c"]))
+PY
+)
+c9a=$(printf '%s\n' "$unshipped" | sed -n 's/^A|//p')
+c9b=$(printf '%s\n' "$unshipped" | sed -n 's/^B|//p')
+c9c=$(printf '%s\n' "$unshipped" | sed -n 's/^C|//p')
+[ -z "$c9a" ] && ok "C9a every agentic-paper:<name> names a shipped skill or agent" \
+              || bad "C9a agentic-paper:<name> that this plugin does not ship" "$c9a"
+[ -z "$c9b" ] && ok "C9b every subagent_type is a shipped agentic-paper agent or a built-in type" \
+              || bad "C9b subagent_type names an agent nobody ships" "$c9b"
+[ -z "$c9c" ] && ok "C9c no upstream-only skill or agent names (${#DEAD_SLASH_NAMES[@]} slash + ${#DEAD_AGENT_NAMES[@]} agent)" \
+              || bad "C9c references to skills/agents this plugin does not ship" "$(printf '%s' "$c9c" | head -20)"
+
+# C10 — no pointer to a rule file the consumer repo no longer has (1.0.2). Since template v0.5.0
+# that text lives in the project's AGENTS.md; point there by section name instead. Matches the
+# bare filename too: review-paper cited `knowledge-work-structure.md` with no directory.
+RETIRED_ALT="$(join_alt "${RETIRED_RULES[@]}")"
+retired=$(grep -rnE "(^|[^[:alnum:]_.-])(${RETIRED_ALT})\.md" "$PLUGIN_DIR" --include='*.md' \
+            | grep -v '/skills/humanizer/' | sed "s#^$PLUGIN_DIR/##")
+[ -z "$retired" ] && ok "C10 no pointer to a rule file v0.5.0 moved into AGENTS.md (${#RETIRED_RULES[@]} names)" \
+                  || bad "C10 pointers to retired rule files" "$retired"
 
 # ---------------------------------------------------------------------------------------------
 group "D · version agreement — claude plugin tag --dry-run (Phase-0 carry-item 4)"

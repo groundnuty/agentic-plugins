@@ -3,7 +3,6 @@ name: audit-reproducibility
 description: Cross-check numeric claims in a manuscript against the actual outputs produced by the analysis pipeline. Report PASS/FAIL per claim against tolerance thresholds. Use before submission and before releasing a replication package.
 argument-hint: "[manuscript path] [outputs-dir] (outputs-dir defaults to the project's analysis-outputs directory)"
 allowed-tools: ["Read", "Grep", "Glob", "Write", "Bash", "Agent", "Task"]
-effort: high
 ---
 
 <!-- Adapted from pedrohcgs/claude-code-my-workflow (MIT), https://github.com/pedrohcgs/claude-code-my-workflow -->
@@ -20,7 +19,7 @@ Compare numeric claims in a manuscript (point estimates, standard errors, p-valu
 - **Before submission.** Catches the "I updated the analysis but forgot to update Table 2" bug.
 - **Before releasing a replication package.** Verifies the code actually reproduces the paper.
 - **After a major revision.** Ensures the paper still matches the latest code.
-- **Quality-gate in `/commit`.** Pair with a pre-commit invocation on manuscript + analysis changes.
+- **Before committing manuscript + analysis changes.** Run it and act on the PASS/FAIL verdict. It is a model-run check, not a git hook: nothing blocks the commit automatically.
 
 ## Inputs
 
@@ -31,7 +30,7 @@ Compare numeric claims in a manuscript (point estimates, standard errors, p-valu
 
 ### Phase 0: Pre-flight
 
-1. Note the tolerance thresholds in Phase 4. If the project defines its own tolerances (in `.claude/rules/project-conventions.md` or a project replication protocol), those override the defaults.
+1. Note the tolerance thresholds in Phase 4. If the project defines its own tolerances (in the project section of AGENTS.md or a project replication protocol), those override the defaults.
 2. Verify the outputs directory exists and is non-empty. If empty or stale (older than the manuscript), prompt the user to re-run their analysis pipeline before auditing.
 3. Ensure an environment capture exists in the outputs dir if the project produces one (e.g. a dependency lockfile, a `sessionInfo`/`pip freeze`/`conda env export` dump). Note its absence rather than failing on it.
 
@@ -95,7 +94,7 @@ For every claim, produce a match candidate with a confidence score. Claims below
 
 ### Phase 4: Tolerance check
 
-For each matched claim, apply these thresholds (defaults — a project may override them in `.claude/rules/project-conventions.md`):
+For each matched claim, apply these thresholds (defaults — a project may override them in the project section of AGENTS.md):
 
 | Kind | Tolerance | Example |
 |---|---|---|
@@ -150,11 +149,13 @@ Write `.claude/session-reports/reproducibility_audit_[manuscript-name].md`:
 3. After zero FAILs, the paper is replication-ready.
 ```
 
-## Exit behavior
+## Verdict
 
-- **All PASS:** exit 0, summary printed.
-- **Any FAIL:** exit 1, summary printed to stderr. This makes the skill usable as a pre-commit gate.
-- **UNMATCHED > 0 (with 0 FAIL):** exit 0 with warning — user must manually review.
+The skill reports a verdict; it has no exit status (it is a model-run skill, not a script, and this plugin ships no script that would set one). End the reply with the verdict line:
+
+- **All PASS:** `PASS`, with the summary.
+- **Any FAIL:** `FAIL`, with the FAIL rows listed first. Treat it as a blocker: do not submit or release the replication package until every FAIL is resolved.
+- **UNMATCHED > 0 (with 0 FAIL):** `PASS with warnings` — the user must review the UNMATCHED rows by hand.
 
 ## Cross-references
 
@@ -164,5 +165,5 @@ Write `.claude/session-reports/reproducibility_audit_[manuscript-name].md`:
 ## What this skill does NOT do
 
 - **Re-run your analysis.** The skill compares CURRENT outputs against manuscript claims. If the outputs are stale, re-run your pipeline first (the pre-flight phase will warn).
-- **Catch wrong specifications.** A regression that compiles cleanly and produces a reproducible `-1.632` is reproducible. Whether `-1.632` is the RIGHT estimand is a `review-paper` / domain-reviewer question.
+- **Catch wrong specifications.** A regression that compiles cleanly and produces a reproducible `-1.632` is reproducible. Whether `-1.632` is the RIGHT estimand is a question for `/agentic-paper:review-paper` (in `--peer` mode, its `agentic-paper:methods-referee`).
 - **Check dependency versions.** An environment capture lets a reviewer see what produced the numbers; pinning versions is on the user (a lockfile — `renv.lock`, `requirements.txt`, `poetry.lock`, `Manifest.toml`, whatever the stack uses).

@@ -11,7 +11,7 @@ disallowed-tools: ["Edit", "MultiEdit"]
 
 # /agentic-paper:verify-claims — Chain-of-Verification on a Draft
 
-Fact-check a draft using the **Post-Flight Verification protocol**. This skill is where that protocol lives; `.claude/rules/post-flight-verification.md` in the project scaffold is the trigger rule that points here. Rules are scaffold-side by law — a plugin cannot ship them — so that is a **project** path, not a plugin-relative one.
+Fact-check a draft using the **Post-Flight Verification protocol**. This skill is where that protocol lives. The trigger rule that points here is the "Post-flight verification" section of the **project's** AGENTS.md — a plugin cannot ship rules, so it lives in the project, not in this plugin.
 
 **Input:** `$ARGUMENTS` — path to a file containing the draft (markdown, .qmd, .tex, .md) or a shorthand pointer. Optional flags:
 
@@ -21,7 +21,7 @@ Fact-check a draft using the **Post-Flight Verification protocol**. This skill i
 ## When to pick this skill
 
 - **`/agentic-paper:verify-claims`** (this skill) — ad-hoc fact-checking on any draft or text block the user hands you. One-shot, user-invoked.
-- **Other skills that auto-run Post-Flight internally** (`/lit-review`, `/research-ideation`, `/agentic-paper:respond-to-referees`, `/agentic-paper:review-paper --peer`) — no need to call this separately; they already run it.
+- **Other skills that auto-run Post-Flight internally** (`/agentic-paper:respond-to-referees`, `/agentic-paper:review-paper --peer`) — no need to call this separately; they already run it.
 - **`/agentic-paper:proofread`** — grammar, typos, overflow. Different lens.
 - **`/agentic-paper:review-paper`** (default mode) — full manuscript review, not just claim verification.
 
@@ -97,13 +97,13 @@ Respect `--no-fail-closed`: on FAIL, produce the warning but do not regenerate.
 ## Example
 
 ```
-/agentic-paper:verify-claims .claude/session-reports/lit-review_topic.md --source papers/smith_2021_method.pdf --source papers/jones_2020_survey.pdf
+/agentic-paper:verify-claims .claude/session-reports/related-work_staggered-did.md --source papers/smith_2021_method.pdf --source papers/jones_2020_survey.pdf
 ```
 
 Expected output (abridged):
 
 ```markdown
-## Post-Flight Verification — lit-review_staggered-did.md
+## Post-Flight Verification — related-work_staggered-did.md
 
 **Claims extracted:** 14
 **Verified independently:** 14 (fresh-context claim-verifier)
@@ -147,15 +147,14 @@ A citation can pass `/agentic-paper:validate-bib` (the paper is real, the DOI re
 ## Cross-references
 
 - [`agentic-paper:claim-verifier`](../../agents/claim-verifier.md) — the fresh-context verifier.
-- `.claude/rules/post-flight-verification.md` — the trigger rule (project scaffold, not shipped by this plugin).
-- MEMORY.md `[LEARN:pattern]` on Chain-of-Verification vs critic-fixer vs cross-artifact review.
+- The "Post-flight verification" section of the project's AGENTS.md — the trigger rule (project side, not shipped by this plugin).
 
 
 ---
 
 ## When post-flight verification is mandatory
 
-Any skill whose output contains factual claims verifiable against a source runs this protocol before returning: `/lit-review` and `/research-ideation` (citations, negative-literature claims, dataset and feasibility claims), `/agentic-paper:respond-to-referees` ("we added X on page Y"), `/agentic-paper:review-paper --peer` (novelty-probe claims), and any drafting skill that cites. Mechanical skills (`/compile-latex`, `/extract-tikz`, `/commit`) are exempt — a compiler already verifies their output.
+Any skill whose output contains factual claims verifiable against a source runs this protocol before returning: `/agentic-paper:respond-to-referees` ("we added X on page Y"), `/agentic-paper:review-paper --peer` (novelty-probe claims), and any literature-review, ideation or drafting work that cites (citations, negative-literature claims, dataset and feasibility claims). Mechanical steps — compiling LaTeX, extracting figures, committing — are exempt: the tool that runs them already checks their output.
 
 Each such skill surfaces a Post-Flight block in its response: claims extracted, claims verified independently, outcome, and per-tier detail. The user must be able to see what was checked.
 
