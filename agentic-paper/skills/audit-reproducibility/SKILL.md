@@ -159,7 +159,7 @@ The skill reports a verdict; it has no exit status (it is a model-run skill, not
 
 ## Cross-references
 
-- `/agentic-paper:review-paper` ("Cross-artifact protocol") — the code review of referenced scripts; this skill catches NUMERICAL reproducibility.
+- `/agentic-paper:review-paper` ("Cross-artifact protocol", in [its CROSS-ARTIFACT.md](../review-paper/CROSS-ARTIFACT.md)) — the code review of referenced scripts; this skill catches NUMERICAL reproducibility.
 - [`/agentic-paper:review-paper`](../review-paper/SKILL.md) — content review; pair with this skill for a full pre-submission audit.
 
 ## What this skill does NOT do

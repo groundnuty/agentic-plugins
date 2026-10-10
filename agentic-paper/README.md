@@ -28,9 +28,11 @@ claude plugin install agentic-paper@agentic-plugins --scope project
 | `/agentic-paper:validate-bib` | BibTeX structural + semantic validation |
 
 **5 agents** — `agentic-paper:claim-verifier`, `:domain-referee`, `:methods-referee`, `:editor`,
-`:proofreader`. All four review agents carry `memory: project`. `claim-verifier` deliberately does
-**not**: it is the CoVe fresh-context verifier, and project memory would let it see prior drafts,
-which is exactly the independence the mechanism buys.
+`:proofreader`. No agent declares `memory:`. Persistent memory auto-enables Read, Write and Edit
+(sub-agents docs), which would hand Edit to review agents told never to edit the manuscript, and
+their reports already carry what an R&R round needs (`desk_review.md`, `referee_*.md`).
+`claim-verifier` must never get it: it is the CoVe fresh-context verifier, and memory would let it
+see prior drafts, which is exactly the independence the mechanism buys.
 
 **1 LSP server** — `texlab`, mapping `.tex` → `latex` and `.bib` → `bibtex`.
 

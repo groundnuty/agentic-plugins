@@ -20,12 +20,9 @@ Canonical starting points for common academic diagrams. Each snippet:
 ## How to use
 
 1. Copy the nearest match to your figures directory. These files ship inside the `agentic-paper`
-   plugin (version-pinned cache), **not** in your project tree — so `Read` the snippet from this
-   skill and `Write` it to the destination rather than shelling out to a relative `cp`:
-   ```
-   # from Bash, use the plugin root — a bare `cp snippets/…` resolves against the repo, not the plugin
-   cp "${CLAUDE_PLUGIN_ROOT}"/skills/tikz/snippets/flowchart.tex figures/my-diagram.tex
-   ```
+   plugin (version-pinned cache), **not** in your project tree, so a relative `cp snippets/…` from the
+   repo root finds nothing. `Read` the snippet from the snippets directory (the tikz `SKILL.md` gives
+   its absolute path) and `Write` it to the destination, e.g. `figures/my-diagram.tex`.
 2. Edit node labels, coordinates, and styles to fit your case.
 3. Keep the coordinate-map comment (P2) up to date — it's the reader's legend.
 4. Compile standalone first: `latexmk -pdf figures/my-diagram.tex`

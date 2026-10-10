@@ -79,7 +79,7 @@ For each flagged pair: list both keys, where each is cited, and recommend a cano
 
 ### 2b. DOI verification (optional; network)
 
-For each entry with a `doi`, fetch `https://api.crossref.org/works/{doi}` and compare:
+For each entry with a `doi`, run the Crossref `curl … | jq` call from 2e below (not `WebFetch`: its summarizer drops the full author list and other fields this comparison needs). One Crossref response, cached, serves both 2b and 2e. Compare:
 
 - First-author last name
 - Year
@@ -94,7 +94,7 @@ For each entry with a `doi`, fetch `https://api.crossref.org/works/{doi}` and co
 
 **Rate limit:** cap 50 lookups per run, 0.5s delay between calls. Cache in `.claude/session-reports/.doi_cache.json`.
 
-**Opt-out:** `--skip-doi` for offline or no-WebFetch environments.
+**Opt-out:** `--skip-doi` for offline environments, or wherever `curl` cannot reach `api.crossref.org`.
 
 ### 2c. Style consistency within each file
 
@@ -119,6 +119,7 @@ curl -sfL -H 'User-Agent: validate-bib (mailto:you@example.org)' \
      title:   .message.title[0],
      authors: [.message.author[]?.family],
      year:    .message.issued."date-parts"[0][0],
+     journal: .message."container-title"[0],
      updates: [.message."update-to"[]? | {type, doi: .DOI}] }'
 
 # OpenAlex — retraction status (keyless; mailto in the query string)

@@ -11,12 +11,14 @@ Analyze the research paper at `$ARGUMENTS` and create structured notes for state
 
 ## Process
 
-**IMPORTANT: Analyze papers ONE BY ONE to avoid context overload. Complete one paper fully before moving to the next.**
+Analyze one paper at a time and finish its note before starting the next, so each note is written from that paper alone and the context does not fill up with several papers at once.
 
-1. **Read the PDF** at the provided path
-2. **Extract key information** following the template below
-3. **Create a note file** in the `notes/papers/` directory with filename pattern: `XX_AuthorLastName_ShortTitle_VenueYear.md`
-4. **Proceed to the next paper** automatically (if analyzing multiple)
+1. **Load our paper's positioning** (once per session; see "Context for Comparison" below)
+2. **Read the PDF** at the provided path
+3. **Read the whole reference list**, not only Related Work: the most useful follow-ups are often cited in the methods or discussion. They go in the note's "Notable References to Follow Up" table.
+4. **Extract key information** following the template below
+5. **Create a note file** in the `notes/papers/` directory with filename pattern: `XX_AuthorLastName_ShortTitle_VenueYear.md`
+6. **Proceed to the next paper** automatically (if analyzing multiple)
 
 ## Note Template
 
@@ -124,8 +126,6 @@ Create a markdown file with this structure:
 
 ## Notable References to Follow Up
 
-**IMPORTANT: Scan the ENTIRE paper's reference list to find relevant citations.**
-
 | Reference | Why Relevant | Priority |
 |-----------|--------------|----------|
 | [Author et al., Year - "Title"] | [Brief reason] | HIGH/MEDIUM/LOW |
@@ -176,20 +176,17 @@ When extracting quotes, prioritize:
 
 ## Context for Comparison
 
-<!-- Fill in per-paper project. Describe your paper's focus so the analysis can position against it. -->
+Every "Our approach" cell, relevance rating and positioning line compares the paper against **our paper's positioning**: a one-sentence contribution, up to three key novelties, and the topics that make a paper HIGH priority. Load it before the first paper, from the first of these that exists:
 
-When analyzing, compare against our paper's focus:
-- **Our paper:** <!-- one-sentence summary of your paper's contribution -->
-- **Key novelties:**
-  1. <!-- novelty 1 -->
-  2. <!-- novelty 2 -->
-  3. <!-- novelty 3 -->
+1. `.claude/references/positioning.md` in the project.
+2. The project overview section of the project's `AGENTS.md`, if it states the contribution.
+3. Neither: ask the user for a one-sentence contribution, up to three novelties and any HIGH-priority topics, and offer to save them to `.claude/references/positioning.md` so the next run finds them.
+
+Keep this in the project, not in this skill: the plugin cache is version-pinned and replaced on every update.
 
 ## Topics to Flag
 
-<!-- Customize for your research area. These topics trigger HIGH priority marking. -->
-
-Mark papers as HIGH priority if they discuss topics directly relevant to your paper's contribution area.
+Mark papers as HIGH priority if they discuss a topic the positioning file lists as HIGH priority, or one directly relevant to our paper's contribution area.
 
 ## Output Location
 

@@ -31,6 +31,8 @@ This skill has two entry points, and **which one you are on decides everything d
 4. Standard diagram types use the canonical safe templates in `snippets/` (Rule P5)
 5. `scale` is never used alone on complex diagrams (Rule P3)
 
+**The snippets directory is `${CLAUDE_SKILL_DIR}/snippets/`**: `flowchart.tex`, `tree.tex`, `graph.tex`, `plot.tex`, `block-diagram.tex`, and a `README.md`. To start a figure from one, Read the nearest snippet from there and Write it into the project (e.g. `figures/my-diagram.tex`). It sits in the plugin's version-pinned cache, not in the project, so a relative `cp snippets/…` from the repo root finds nothing. `PREVENTION.md` and the snippets `README.md` refer to it as "the snippets directory".
+
 **When prevention rules were applied**: `/agentic-paper:tikz` should find few or no issues. Run it as a check.
 
 **When prevention rules were NOT applied** (legacy TikZ, hand-written diagrams, inherited code): `/agentic-paper:tikz` does its best, but expect more findings, more iteration, and lower reliability on autosized nodes and scaled diagrams.

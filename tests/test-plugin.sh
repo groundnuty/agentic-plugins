@@ -30,9 +30,9 @@ MKT_NAME="agentic-plugins"
 SKILLS=(review-paper verify-claims proofread seven-pass-review respond-to-referees
         audit-reproducibility analyze-paper humanizer tikz validate-bib)
 AGENTS=(claim-verifier domain-referee methods-referee editor proofreader)
-# memory: project on exactly these four. claim-verifier is deliberately absent: it is the CoVe
-# fresh-context verifier, and project memory would defeat the independence the mechanism buys.
-MEMORY_AGENTS=(domain-referee methods-referee editor proofreader)
+# No agent declares memory: (B3, C11). Persistent memory auto-enables Read, Write and Edit
+# (sub-agents docs, "Enable persistent memory"), so it hands Edit to review agents told never to
+# edit the manuscript; and on claim-verifier it would defeat the CoVe fresh-context independence.
 # Fields plugins-reference lists as unsupported in plugin-shipped agent frontmatter.
 BANNED_AGENT_FIELDS=(permissionMode mcpServers hooks)
 # Names that came over from the upstream project but were never shipped here (C9c). A reference
@@ -169,7 +169,7 @@ fi
 # ---------------------------------------------------------------------------------------------
 group "B · frontmatter lint — the fields claude plugin validate does not check (m1)"
 
-lint=$(python3 - "$PLUGIN_DIR" "${BANNED_AGENT_FIELDS[*]}" "${AGENTS[*]}" "${MEMORY_AGENTS[*]}" "${SKILLS[*]}" <<'PY'
+lint=$(python3 - "$PLUGIN_DIR" "${BANNED_AGENT_FIELDS[*]}" "${AGENTS[*]}" "${SKILLS[*]}" <<'PY'
 import pathlib, re, sys, json
 try:
     import yaml
@@ -177,7 +177,7 @@ except ImportError:
     print(json.dumps({"envskip": True})); sys.exit(0)
 root = pathlib.Path(sys.argv[1])
 banned, agents = sys.argv[2].split(), sys.argv[3].split()
-mem_expected, skills = set(sys.argv[4].split()), sys.argv[5].split()
+skills = sys.argv[4].split()
 errs = []
 def fm_of(p):
     m = re.match(r"^---\n(.*?)\n---\n", p.read_text(), re.S)
@@ -195,11 +195,11 @@ for p in sorted((root/"agents").glob("*.md")):
     n = fm.get("name")
     if not n: errs.append(f"{p.relative_to(root)}: no 'name'")
     else: names.append(n)
-    if fm.get("memory") == "project": mem.add(n)
+    if "memory" in fm: mem.add(f"{n} (memory: {fm['memory']})")
 if sorted(names) != sorted(agents):
     errs.append(f"agent set: expected {sorted(agents)} got {sorted(names)}")
-if mem != mem_expected:
-    errs.append(f"memory:project set: expected {sorted(mem_expected)} got {sorted(mem)}")
+if mem:
+    errs.append(f"memory: declared by {sorted(mem)} -- it auto-enables Read/Write/Edit")
 cv = root/"agents"/"claim-verifier.md"
 if cv.exists() and "deliberately NO memory: project" not in cv.read_text():
     errs.append("claim-verifier.md: lost the comment documenting its deliberate lack of memory:project")
@@ -225,7 +225,7 @@ else
   if [ "$nerr" -eq 0 ]; then
     ok "B1 no banned frontmatter fields (${BANNED_AGENT_FIELDS[*]}) in any agent"
     ok "B2 all agent + SKILL.md frontmatter parses as YAML"
-    ok "B3 memory:project on exactly ${#MEMORY_AGENTS[@]} agents; claim-verifier's absence documented"
+    ok "B3 no agent declares memory: (it auto-enables Edit); claim-verifier's absence documented"
     ok "B4 shipped skill/agent sets match the declared inventory"
   else
     printf '%s' "$lint" | python3 -c \
@@ -484,6 +484,38 @@ retired=$(grep -rnE "(^|[^[:alnum:]_.-])(${RETIRED_ALT})\.md" "$PLUGIN_DIR" --in
             | grep -v '/skills/humanizer/' | sed "s#^$PLUGIN_DIR/##")
 [ -z "$retired" ] && ok "C10 no pointer to a rule file v0.5.0 moved into AGENTS.md (${#RETIRED_RULES[@]} names)" \
                   || bad "C10 pointers to retired rule files" "$retired"
+
+# C11 — no agent declares memory: (1.0.3). Persistent memory auto-enables Read, Write and Edit
+# (sub-agents docs, "Enable persistent memory"): `memory: project` handed Edit to the editor, both
+# referees and the proofreader, all told never to edit the manuscript. B3 checks the same through
+# the YAML parser; this is the parser-free backstop (B3 is skipped when PyYAML is missing).
+memdecl=$(for f in "$PLUGIN_DIR"/agents/*.md; do
+            awk -v f="${f#"$PLUGIN_DIR"/}" 'NR==1 && /^---/ {fm=1; next} fm && /^---/ {exit}
+              fm && /^[[:space:]]*memory[[:space:]]*:/ {print f ":" NR ": " $0}' "$f"
+          done)
+[ -z "$memdecl" ] && ok "C11 no agent frontmatter declares memory: (it would auto-enable Edit)" \
+                  || bad "C11 agent declares memory: — auto-enables Read/Write/Edit" "$memdecl"
+
+# C12 — no ${CLAUDE_*} variable in a skill's support files (1.0.3). Claude Code substitutes
+# ${CLAUDE_SKILL_DIR} / ${CLAUDE_PLUGIN_ROOT} only in SKILL.md content and allowed-tools Bash rules
+# (skills docs, "Available string substitutions"); a support file Claude reads with Read keeps the
+# literal text. State the path in SKILL.md and have support files refer to it by name.
+unsub=$(cd "$PLUGIN_DIR" && grep -rnE '\$\{?CLAUDE_[A-Z_]+' skills --exclude=SKILL.md \
+          --exclude-dir=humanizer 2>/dev/null)
+[ -z "$unsub" ] && ok "C12 no \${CLAUDE_*} variable in skill support files (not substituted there)" \
+                || bad "C12 \${CLAUDE_*} in a support file — Claude Code leaves it unexpanded" "$unsub"
+
+# C13 — every SKILL.md fits the compaction re-attach budget (1.0.3). After auto-compaction Claude
+# Code re-attaches each invoked skill but keeps only its first 5,000 tokens (skills docs, "Skill
+# content lifecycle"), so anything past that is silently lost mid-task. chars/4 is an estimate;
+# exact tokenization is not checked. Humanizer is vendored upstream and cannot be split here.
+big=$(for f in "$PLUGIN_DIR"/skills/*/SKILL.md; do
+        case "$f" in */skills/humanizer/*) continue ;; esac
+        c=$(wc -c < "$f" | tr -d ' ')
+        [ "$c" -gt 20000 ] && printf '%s: %s chars (~%s tokens)\n' "${f#"$PLUGIN_DIR"/}" "$c" "$((c / 4))"
+      done)
+[ -z "$big" ] && ok "C13 every SKILL.md is under ~5,000 tokens (chars/4), the post-compaction cut" \
+              || bad "C13 SKILL.md past the 5,000-token re-attach cut — move detail to support files" "$big"
 
 # ---------------------------------------------------------------------------------------------
 group "D · version agreement — claude plugin tag --dry-run (Phase-0 carry-item 4)"

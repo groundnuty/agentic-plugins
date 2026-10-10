@@ -33,6 +33,16 @@ Produce a thorough, constructive review of an academic manuscript — the kind o
 
 ## Modes
 
+Choose the mode from the flags, and read that mode's file before you start it:
+
+| Flags | Mode | Read first |
+|---|---|---|
+| none | **Default** — one review report | nothing more: follow Steps 1–6b below |
+| `--adversarial` | **Critic-fixer loop** until a round adds nothing new (fallback cap: 5 rounds) | [ADVERSARIAL.md](ADVERSARIAL.md), before Step 1 |
+| `--peer <JOURNAL>` (plus `--r2` / `--r3` / `--stress`) | **Simulated peer review** — editor + 2 blind referees, calibrated to the journal | [PEER.md](PEER.md), before its Phase 0 (after Step 1 here) |
+
+Cross-artifact review runs in every mode unless `--no-cross-artifact` is set: read [CROSS-ARTIFACT.md](CROSS-ARTIFACT.md) before Step 6b (default, `--adversarial`) or before `--peer` Phase 0.
+
 ### Default mode (single-pass)
 
 One comprehensive review report. Fast, low token cost, suitable for early drafts where the author wants feedback and will iterate manually.
@@ -47,7 +57,7 @@ Use when: preparing a pre-submission draft, responding to a journal-desk rejecti
 
 Simulated editorial pipeline: **editor desk review → referee selection → 2 blind referees with different dispositions → editorial synthesis**. Calibrated to a target journal (from your `.claude/references/journal-profiles.md` if present, else general venue norms). Use when: pre-submission dress rehearsal, choosing between target journals, R&R planning.
 
-This mode is materially different from `--adversarial`: adversarial re-runs one critic, in a fresh context each round, until a round turns up nothing new (5-round fallback cap); `--peer` runs **different personas** (editor + 2 dispositioned referees drawn from 6-way taxonomy: STRUCTURAL / CREDIBILITY / MEASUREMENT / POLICY / THEORY / SKEPTIC) whose priors are *deliberately different* and who are blind to each other.
+This mode is materially different from `--adversarial`: adversarial re-runs one critic, in a fresh context each round, until a round turns up nothing new (5-round fallback cap); `--peer` runs **different personas** (editor + 2 referees with dispositions chosen from a 6-way taxonomy: STRUCTURAL / CREDIBILITY / MEASUREMENT / POLICY / THEORY / SKEPTIC) whose priors are *deliberately different* and who are blind to each other.
 
 **Agents used** (all reimplemented in this template; adapted from [Hugo Sant'Anna's clo-author](https://github.com/hugosantanna/clo-author) with permission):
 
@@ -61,10 +71,19 @@ This mode is materially different from `--adversarial`: adversarial re-runs one 
 - `--stress` — Hostile editor. Forces both referees to SKEPTIC disposition, doubles critical peeves, framing: "you are looking for reasons to reject this paper." Output is a concern-list gauntlet, not a decision letter.
 - `--no-novelty-check` — Disables the editor's WebSearch novelty probes (default is ON). Use in offline or hallucination-sensitive contexts. **Novelty-check caveat (document this to users):** WebSearch can return hallucinated citations or miss paywalled recent work. Always surface novelty-probe results as flags for manual verification, not verdicts.
 
+**Two verification gates, run by this skill, not by the editor.** The editor agent has no `Agent` tool, so it cannot dispatch a verifier. After the editor's Phase 1 run and after its Phase 3 run, you run the matching gate yourself, exactly as PEER.md describes:
+
+1. **Gate 1, novelty-probe verification (after Phase 1):** every prior-work claim from the editor's novelty probes goes to `agentic-paper:claim-verifier`; a desk reject that rests on an unconfirmed claim sends the editor back to redo its verdict.
+2. **Gate 2, post-judge hallucination gate (after Phase 3):** every FATAL or ADDRESSABLE concern that no referee raised is verified or dropped as `[JUDGE-HALLUCINATED]`, and the editor recomputes its decision without it.
+
+Both gates dispatch the verifier by name, so it starts with a fresh context. Never use the `fork` subagent type for them: a fork inherits this conversation and turns the check into self-confirmation.
+
+Re-read the gate's section of [PEER.md](PEER.md) right before you run it, even if you read the file earlier. A long `--peer` run can hit context compaction, which re-attaches this file but keeps only a summary of what you read from PEER.md.
+
 ---
 
 
-## Steps (default and `--adversarial` modes; `--peer` follows its own workflow below, after step 1)
+## Steps (default and `--adversarial` modes; `--peer` follows [PEER.md](PEER.md) after Step 1)
 
 1. **Locate and read the manuscript.** First strip every flag (and the journal name after `--peer`) from `$ARGUMENTS` to get the bare manuscript path. Check:
    - Direct path (bare path from step 1)
@@ -85,9 +104,9 @@ This mode is materially different from `--adversarial`: adversarial re-runs one 
    - a code review of each referenced script — read it and check it actually produces the claimed outputs (a fresh general-purpose subagent, not the `fork` type; results to `.claude/session-reports/cross_artifact_[paper]/review_[script].md`)
    - `/agentic-paper:audit-reproducibility` on the manuscript + outputs dir (results to `.claude/session-reports/cross_artifact_[paper]/reproducibility.md`)
 
-   Merge critical cross-artifact findings (code bug invalidates paper claim, reproducibility FAIL) into a new "Cross-Artifact Findings" section at the top of the paper review report. See "Cross-artifact protocol" at the end of this skill for the full contract.
+   Merge critical cross-artifact findings (code bug invalidates paper claim, reproducibility FAIL) into a new "Cross-Artifact Findings" section at the top of the paper review report. Read [CROSS-ARTIFACT.md](CROSS-ARTIFACT.md) before this step: it holds the full contract (detection signals, escalation, what is out of scope).
 
-7. **If `--adversarial` is in `$ARGUMENTS`:** invoke the critic-fixer loop defined in the next section. Otherwise stop here.
+7. **If `--adversarial` is in `$ARGUMENTS`:** continue the critic-fixer loop in [ADVERSARIAL.md](ADVERSARIAL.md) from its Phase 1 convergence check, with this report as round 1. Re-read ADVERSARIAL.md at the start of every round: compaction re-attaches this file, not that one. Otherwise stop here.
 
 ---
 
@@ -214,233 +233,8 @@ These are the tough questions a top referee would likely raise:
 
 ---
 
-## Adversarial Mode — Critic-Fixer Loop
-
-**Only runs if `--adversarial` is in `$ARGUMENTS`.**
-
-A **loop-until-dry** critic-fixer pattern: the critic emits typed findings, the fixer applies approved edits, a fresh-context critic re-audits, and the loop ends when a round surfaces nothing new. Papers get it because the single-pass review leaves authors doing manual fix-and-resubmit cycles.
-
-### Flow
-
-```
-Phase 0: Pre-flight
-  │
-  ├─ Verify the manuscript compiles (xelatex / quarto render) if applicable
-  ├─ Snapshot the pre-review version: git stash OR copy to a .review-backup/
-  │
-Phase 1: Critic audit (round N=1,2,3,...)
-  │
-  ├─ Run the default review above, producing a round-N report
-  ├─ Diff round N's concerns against every prior round (dedup key:
-  │  location + finding). If the round adds ZERO new CRITICAL/MAJOR
-  │  concerns and ZERO new "fatal" Referee Objections:
-  │     → VERDICT = APPROVED. Stop the loop. Write final summary.
-  │  Else: continue.
-  │
-Phase 2: Fixer
-  │
-  ├─ For each Major Concern in the round-N report, produce a concrete
-  │  proposed edit (diff or new text block).
-  ├─ Present proposed edits to the user grouped by severity (Critical →
-  │  Major → Minor). Ask for approval: "apply all", "apply critical+major
-  │  only", "review each", or "abort".
-  ├─ Apply approved edits with the Edit tool.
-  ├─ If the manuscript is a compile target (`.tex` / `.qmd`), re-compile
-  │  and verify it still builds.
-  │
-Phase 3: Re-audit
-  │
-  └─ Spawn a FRESH-CONTEXT subagent (via the `Agent` tool, `subagent_type` set to
-     general-purpose) to re-read the paper and produce a round-(N+1)
-     report. Fresh context prevents anchoring bias — the new reviewer
-     sees the edited paper, not the diff.
-     → Jump back to Phase 1.
-```
-
-### Iteration limits — loop-until-dry
-
-The loop is **not** a fixed round count. Each critic round returns typed findings —
-
-```yaml
-findings:
-  - severity: CRITICAL | MAJOR | MINOR
-    location: <section, page, table, or line>
-    finding: <one sentence — what is wrong>
-    evidence: <quote or number lifted from the manuscript>
-    change_my_mind: <what would make this concern go away>
-```
-
-— and the loop **converges when a round adds 0 new CRITICAL/MAJOR concerns**, deduped on `location` + `finding`. A round that only restates concerns already on the table is a converged round, even if the raw count is non-zero.
-
-- **Convergence (the normal exit):** APPROVED once a round adds no new CRITICAL/MAJOR concerns and no new fatal Referee Objections.
-- **Fallback cap:** 5 rounds bounds a loop that refuses to converge. After round 5, halt and list what remains. This is a backstop, not the expected ending — if you routinely hit it, the manuscript needs a rewrite, not another round.
-- **Two-strikes:** if the same Concern label appears in rounds N and N+2, flag as "author disagreement" and let the user decide (keep-as-is with rationale vs. another fix attempt).
-- **Budget escape:** if cumulative token cost across rounds exceeds ~200k, warn and let the user cap further rounds. This is a spend ceiling, not a context-window limit — each re-audit runs in fresh context.
-
-### Stopping criteria
-
-| Condition | Action |
-|---|---|
-| Round adds 0 new CRITICAL/MAJOR concerns and 0 new fatal Referee Objections | APPROVED (converged) — final summary |
-| Fallback cap (5 rounds) reached without converging | HALTED — list remaining concerns, user decides |
-| User approves zero fixes in a round | HALTED — user signals "I disagree with this review" |
-| Compile fails after applied fixes | ROLLED BACK to pre-round-N snapshot, report compile error, user decides |
-
-### Final report
-
-After the loop ends, write `.claude/session-reports/paper_review_[sanitized_name]_FINAL.md`:
-
-```markdown
-# Final Review: [Paper Title]
-
-**Rounds:** N
-**Verdict:** APPROVED (converged) | HALTED (fallback cap) | HALTED (user override) | ROLLED BACK
-**Token cost estimate:** ~XXk
-
-## Round Summary
-| Round | Major Concerns | Fatal Objections | Status |
-|---|---|---|---|
-| 1 | 7 | 2 | Fixed 5, deferred 2 |
-| 2 | 3 | 1 | ...              |
-| ... | ... | ... | ...         |
-| N | 0 | 0 | APPROVED        |
-
-## Changes Applied
-[link to git diff between the pre-round-1 snapshot and HEAD]
-
-## Remaining Concerns (if HALTED)
-[list with severity + rationale]
-
-## Next Steps
-[recommended action: submit / one more pass / substantial revision]
-```
-
-### When NOT to use adversarial mode
-
-- Early exploratory drafts (the loop forces premature polish on ideas still being shaped)
-- Papers you don't yet have compilable source for (can't verify edits)
-- When you'd rather get ONE opinion and decide for yourself (adversarial-mode enforces "critic signed off" semantics — that's sometimes the wrong frame)
-
----
-
-## `--peer [journal]` workflow detail
-
-### Phase 0: Cross-artifact pre-flight (runs BEFORE desk review in --peer mode)
-
-Unless `--no-cross-artifact` is set, auto-invoke `/agentic-paper:audit-reproducibility` on the manuscript + its outputs directory *first*. Any reproducibility FAIL becomes desk-reject-worthy evidence the editor can cite. See "Cross-artifact protocol" at the end of this skill.
-
-Reports: `.claude/session-reports/cross_artifact_[paper]/reproducibility.md`.
-
-**Novelty-probe Post-Flight.** The editor's novelty probe uses `WebSearch` to check whether the paper's contribution has been made before. WebSearch results can be hallucinated — fabricated prior work, misattributed findings, wrong years. Before the editor's desk review incorporates novelty-probe claims into its decision, those claims must pass Post-Flight Verification per [`/agentic-paper:verify-claims`](../verify-claims/SKILL.md):
-
-1. The editor collects novelty-probe claims (e.g., "Smith 2022 already showed this exact result").
-2. Dispatch `claim-verifier` with the `Agent` tool (`subagent_type: agentic-paper:claim-verifier`), passing the claims + verification questions + candidate source URLs. A named subagent starts with a fresh context and has never seen this conversation. **Never use the `fork` subagent type here:** a fork inherits the whole conversation, draft included, and the check turns into self-confirmation. The fresh context is the CoVe independence trick.
-3. Only verified claims are allowed into the desk-review narrative. Unverified claims are surfaced separately as "editor could not verify — manual check recommended" rather than presented as established prior work.
-
-Opt-out: `--no-novelty-check` already skips the probe entirely. If the probe runs, Post-Flight is mandatory.
-
-**Pre-Flight Report (required before Phase 1).** Before spawning the editor, output a Pre-Flight Report so the user can verify the inputs are read correctly:
-
-```markdown
-## Pre-Flight Report — /agentic-paper:review-paper --peer
-
-**Manuscript:** [path] — [page count, last modified]
-**Target journal:** [JOURNAL_SHORT] → [full name]
-**Journal profile loaded:** [yes — from `.claude/references/journal-profiles.md`, key adjustments; or no — calibrated from general venue norms]
-**Cross-artifact scripts found:** [list referenced .R / .py / .do files]
-**Reproducibility status:** [PASS / FAIL from Phase 0] — [N of M claims within tolerance]
-**Round:** [fresh / r2 / r3 / stress]
-```
-
-If the manuscript path doesn't exist or a referenced cross-artifact script is missing, stop and surface the issue before proceeding. A missing journal profile is **not** a stop condition — calibrate from general venue norms and note it.
-
-### Phase 1: Editor desk review
-
-Spawn the `agentic-paper:editor` subagent (named, so it starts fresh) with the manuscript path and `--peer <JOURNAL>` context. Editor:
-- Loads the journal profile if `.claude/references/journal-profiles.md` exists → states "Calibrated to: [journal]" (or notes calibration from general venue norms).
-- Reads abstract + intro + methods overview + headline results.
-- Runs novelty probes (unless `--no-novelty-check`).
-- Either **DESK REJECT** (pipeline terminates with rejection letter) or **SEND OUT**.
-
-Report (the editor writes it; this skill only reads it): `.claude/session-reports/peer_review_[paper]/desk_review.md`.
-
-### Phase 1b: Referee selection (inside editor)
-
-Editor draws 2 DIFFERENT dispositions from journal's Referee-pool weights and assigns each referee 1 critical + 1 constructive peeve (stress mode: 2 critical + 1 constructive). Recorded in `desk_review.md` as its Referee Selection section.
-
-### Phase 2: Two parallel referees, blind to each other
-
-Spawn in parallel:
-- The `agentic-paper:domain-referee` subagent with disposition D1, peeves P1 → `referee_domain.md`.
-- The `agentic-paper:methods-referee` subagent with disposition D2, peeves P2 → `referee_methods.md`.
-
-Each referee writes its own report and must include "What would change my mind: [specific ask]" on every MAJOR concern.
-
-### Phase 3: Editor synthesis (reduce → judge, with the hallucination gate)
-
-Read both referee reports. **Reduce** their findings: classify each MAJOR concern as FATAL / ADDRESSABLE / TASTE, then produce the editorial decision using the decision rule table in `editor.md`. The decision is a function of what the referees found — the editor is a reducer, not a third referee.
-
-**Post-judge hallucination gate.** The editor may **not** desk-reject or escalate the decision on a CRITICAL reason **neither referee raised**. Any editor-introduced blocker that is not traceable to a referee finding must either be re-verified by a fresh `claim-verifier` (the `Agent` tool with `subagent_type: agentic-paper:claim-verifier` — never the `fork` type, which would inherit the referee reports and self-confirm), or be dropped, labeled `[JUDGE-HALLUCINATED]` in the decision letter, and the decision recomputed without it. The gate is one-directional: the editor may always downgrade, de-duplicate, or reclassify a referee's concern. See [`/agentic-paper:verify-claims`](../verify-claims/SKILL.md).
-
-Report (the editor writes it; this skill only reads it): `.claude/session-reports/peer_review_[paper]/editorial_decision.md`.
-
-### Phase 4: Summary
-
-Tell the user:
-- Final decision (Accept / Minor / Major / Reject / Desk Reject)
-- Token usage + wall-clock time
-- Paths to all 4 reports (desk_review, referee_domain, referee_methods, editorial_decision)
-
----
-
-## Output layout for `--peer` mode
-
-```
-.claude/session-reports/
-  peer_review_[sanitized_paper_name]/
-    desk_review.md                       # Phase 1 + Phase 1b
-    referee_domain.md                    # Phase 2 (parallel)
-    referee_methods.md                   # Phase 2 (parallel)
-    editorial_decision.md                # Phase 3
-    (R&R rounds: desk_review_r2.md, referee_domain_r2.md, ...)
-  cross_artifact_[sanitized_paper_name]/
-    reproducibility.md                   # Phase 0
-    review_r_*.md                        # Phase 0 (one per referenced script)
-```
-
----
-
 ## Field adaptation
 
 This template ships **no** journal profiles — the pipeline is field-agnostic and calibrates from general venue norms out of the box. To pin the calibration for venues you submit to, copy `.claude/templates/journal-profile-template.md`, fill in the schema, and save the result as `.claude/references/journal-profiles.md`. Only the calibration data is field-specific; the pipeline is not.
 
-For non-econ paper types in `methods-referee.md`, extend the paper-type list (e.g., biology: `observational / experimental / computational / review`).
-
-
----
-
-## Cross-artifact protocol (the full contract)
-
-A paper's claims depend on the code that produced them, so reviewing the manuscript without the code reviews half the artifact. A bug in `02_clean` invalidates Table 2, and reading `manuscript.tex` alone cannot see it.
-
-**Detection is pattern-based and deliberately conservative** — a theory paper that happens to live in a repo containing scripts must not trigger this. Signals:
-
-- `\input{scripts/...}` or `\input{tables/...}`
-- `%% source: scripts/03_analyze.R` (or `.py`, `.do`, `.jl`, …) comments
-- Numeric claims in the text (estimates, coefficients, N, p-values) **combined with** a sibling `scripts/` directory
-- Table labels matching filenames under `scripts/**/_outputs/`
-
-If none are present, no cross-artifact work happens and `--no-cross-artifact` is a no-op.
-
-**Steps.**
-
-1. Build the list of scripts that produced content in this paper.
-2. Review each in a fresh subagent (general-purpose, not the `fork` type) — read it and verify it actually produces the claimed outputs, in whatever language it is written (R, Python, Stata, Julia, shell). This is correctness of the paper's numeric claims, not style. Save to `.claude/session-reports/cross_artifact_[paper]/review_[script].md`. (This template ships no language-specific code-review skill; if you have added one for your stack, invoke it here, otherwise review directly.)
-3. Run `/agentic-paper:audit-reproducibility $manuscript scripts/**/_outputs/` once, saving to `.../reproducibility.md`.
-4. Add a **Cross-Artifact Findings** section at the top of the review report: scripts reviewed, reproducibility PASS/FAIL (k of m claims within tolerance), code-quality counts, then three tables — critical paper+code issues (paper claim / code location / issue), code-only issues (follow-up, non-blocking), paper-only issues.
-
-**Escalation.** An `/agentic-paper:audit-reproducibility` FAIL on tolerance becomes CRITICAL in the paper review. A code CRITICAL that affects a paper claim escalates the same way. A code CRITICAL unrelated to any paper claim is filed as a separate action item.
-
-**Out of scope:** running R / Stata / Python / Julia (that is `/agentic-paper:audit-reproducibility`'s job — it reads existing outputs), git-blame archaeology, and judging whether the authors write good code as distinct from whether their *results* are defensible. The results come first.
-
-**Ordering.** `--peer` runs cross-artifact as Phase 0, before the editor's desk review, so the editor holds reproducibility evidence when deciding. Default and `--adversarial` run it at Step 6b, after the paper review. Both orderings are valid.
+To add paper types for your field (e.g., biology: `observational / experimental / computational / review`), list them in `.claude/references/paper-types.md`, each with its dimensions and weights; `agentic-paper:methods-referee` reads that file when it exists. Do not edit the plugin's own files for this: the plugin cache is version-pinned and replaced on every update.

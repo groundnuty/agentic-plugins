@@ -37,8 +37,8 @@ Run the mandatory proofreading protocol on paper/manuscript files. This produces
    - For `.tex` and `.md` files: `.claude/session-reports/FILENAME_report.md`
    - For `.qmd` files: `.claude/session-reports/FILENAME_qmd_report.md`
 
-5. **IMPORTANT: Do NOT edit any source files.**
-   Only produce the report. Fixes are applied separately after user review.
+5. **Write only the reports; leave every source file unchanged.**
+   Fixes are applied separately, after the user has reviewed the report and approved them (see "The full protocol" below).
 
 6. **Read the saved reports and present a summary** to the user:
    - Total issues found per file

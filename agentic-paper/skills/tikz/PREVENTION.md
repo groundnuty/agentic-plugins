@@ -99,11 +99,10 @@ For parallel arrows, stagger labels: use `pos=0.3` on one and `pos=0.7` on the o
 
 Preferred workflow:
 
-1. Copy the nearest snippet into the project: `Read` this skill's `snippets/flowchart.tex` and `Write`
-   it to `figures/my-flowchart.tex`. Do **not** shell out to `cp snippets/…` — the snippets live inside
-   the `agentic-paper` plugin's version-pinned cache, not in the project tree, so a relative `cp` from
-   the repo root will not find them. (From Bash, `"${CLAUDE_PLUGIN_ROOT}"/skills/tikz/snippets/` is the
-   portable spelling.)
+1. Copy the nearest snippet into the project: `Read` `flowchart.tex` from the snippets directory (the
+   tikz `SKILL.md` gives its absolute path) and `Write` it to `figures/my-flowchart.tex`. Do **not**
+   shell out to `cp snippets/…` — the snippets live inside the `agentic-paper` plugin's version-pinned
+   cache, not in the project tree, so a relative `cp` from the repo root will not find them.
 2. Edit node labels and coordinates to fit your case. **Keep the coordinate map up to date.**
 3. Compile the standalone file to verify before integrating into the paper.
 

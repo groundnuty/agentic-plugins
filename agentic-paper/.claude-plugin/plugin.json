@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "agentic-paper",
   "displayName": "Agentic Paper",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Academic paper suite: review, claim verification (CoVe), proofreading, referee response, reproducibility audit, TikZ discipline, BibTeX validation, texlab LSP.",
   "author": {
     "name": "groundnuty"

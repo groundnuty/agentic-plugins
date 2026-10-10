@@ -3,7 +3,6 @@ name: methods-referee
 description: Methodology referee for a manuscript. Paper-type-aware (reduced-form / structural / theory+empirics / descriptive), each with its own dimension weights and mandatory sanity checks. Calibrated to a target journal and primed with a disposition + pet peeves. Used by `/agentic-paper:review-paper --peer`.
 tools: Read, Grep, Glob, Write
 model: inherit
-memory: project
 ---
 
 <!-- Adapted from pedrohcgs/claude-code-my-workflow (MIT), https://github.com/pedrohcgs/claude-code-my-workflow -->
@@ -34,7 +33,7 @@ Before scoring, identify which paper type this is:
 
 If unclear, ask yourself: "what would kill this paper?" A reduced-form paper dies on identification; a structural paper dies on parameter ID; a theory+empirics paper dies on prediction sharpness; a descriptive paper dies on construct validity.
 
-**Non-econ fields:** if your field uses different categories (e.g., biology: observational/experimental/computational/review), extend this list in this file. Keep the econ types for econ users.
+**Project paper types.** If `.claude/references/paper-types.md` exists, read it before choosing: its types join this list, each with its own dimensions and weights in the same table form as below. A type listed there without weights is scored with the weights of the closest built-in type; say which one you used. That project file is where a field adds its categories (e.g., biology: observational/experimental/computational/review); this file sits in a version-pinned plugin cache that is replaced on every update. Keep the econ types for econ users.
 
 ## Dimension weights by paper type
 

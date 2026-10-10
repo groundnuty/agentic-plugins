@@ -3,7 +3,6 @@ name: proofreader
 description: Expert proofreading agent for academic manuscripts (LaTeX, Quarto, Markdown). Reviews for grammar, typos, overflow, and consistency, and writes a report of proposed fixes without editing the manuscript. Dispatched by `/agentic-paper:proofread`; use after drafting or revising manuscript text.
 tools: Read, Grep, Glob, Write
 model: inherit
-memory: project
 ---
 
 <!-- Adapted from pedrohcgs/claude-code-my-workflow (MIT), https://github.com/pedrohcgs/claude-code-my-workflow -->
